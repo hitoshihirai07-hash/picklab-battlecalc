@@ -1,5 +1,6 @@
 (() => {
   const AI_STATE_KEY = "PICKLAB_AI_STATE";
+  const AI_SCENARIO_KEY = "PICKLAB_AI_SCENARIO";
   const $ = (sel, root=document) => root.querySelector(sel);
 
   // Keep ID normalization consistent with main page
@@ -462,6 +463,31 @@
 
     renderAllyState();
 
+    // --- Scenario toggle (A/B) ---
+    let scenario = (localStorage.getItem(AI_SCENARIO_KEY) || "B").toUpperCase();
+    if (scenario !== "A" && scenario !== "B") scenario = "B";
+
+    function updateScenarioHint(){
+      const hint = $("#scenarioHint");
+      if (!hint) return;
+      hint.textContent = (scenario === "A")
+        ? "最大打点寄り（危険度も表示）"
+        : "安全寄り（負け筋を優先して回避）";
+    }
+
+    const radios = Array.from(document.querySelectorAll('input[name="aiScenario"]'));
+    for (const r of radios){
+      r.checked = (r.value === scenario);
+      r.addEventListener("change", () => {
+        const v = (r.value || "B").toUpperCase();
+        scenario = (v === "A" ? "A" : "B");
+        try{ localStorage.setItem(AI_SCENARIO_KEY, scenario); }catch(_){}
+        updateScenarioHint();
+        compute();
+      });
+    }
+    updateScenarioHint();
+
     // Sync HP input with allyHP
     function syncHpFromActive(){
       const idx = int(selL.value, -1);
@@ -676,8 +702,18 @@
       }
 
       const scored = actions.map(evalAction);
-      const accepted = scored.filter(x=>!x.reject).sort((a,b)=>a.loseProb-b.loseProb || b.threat-a.threat);
-      const rejected = scored.filter(x=>x.reject).sort((a,b)=>a.loseProb-b.loseProb || b.threat-a.threat);
+      const accepted = scored.filter(x=>!x.reject);
+      const rejected = scored.filter(x=>x.reject);
+
+      if (scenario === "A"){
+        // A: prioritize immediate threat (damage) first, then safety
+        accepted.sort((a,b)=> (b.threat - a.threat) || (a.loseProb - b.loseProb));
+        rejected.sort((a,b)=> (b.threat - a.threat) || (a.loseProb - b.loseProb));
+      } else {
+        // B: safety-first (current default)
+        accepted.sort((a,b)=> (a.loseProb - b.loseProb) || (b.threat - a.threat));
+        rejected.sort((a,b)=> (a.loseProb - b.loseProb) || (b.threat - a.threat));
+      }
 
       const top = accepted.length ? accepted.slice(0,3) : rejected.slice(0,3);
 

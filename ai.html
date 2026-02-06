@@ -93,7 +93,18 @@
     <section class="card">
       <div class="panelTitle">
         <h2>提案（1〜3位）</h2>
-        <div class="small">安全寄り（負け筋を優先して回避）</div>
+        <div class="small" id="scenarioHint">安全寄り（負け筋を優先して回避）</div>
+      </div>
+
+      <div class="row" style="justify-content:flex-start;gap:8px;margin-top:6px;flex-wrap:wrap">
+        <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
+          <input type="radio" name="aiScenario" value="B" checked />
+          Scenario B（安全/勝ち筋）
+        </label>
+        <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
+          <input type="radio" name="aiScenario" value="A" />
+          Scenario A（最大打点）
+        </label>
       </div>
 
       <div id="aiSuggest" class="note"></div>
@@ -108,6 +119,6 @@
   </div>
 </main>
 
-<script src="ai.js"></script>
+<script src="ai.js?v=20260206_2"></script>
 </body>
 </html>

@@ -741,6 +741,29 @@
 
 
 
+  function clampNum(v, lo, hi){
+    const n = Number(v);
+    if (!Number.isFinite(n)) return lo;
+    return Math.max(lo, Math.min(hi, n));
+  }
+
+  // --- Priority (先制) ---
+  // Returns the maximum priority among selected moves (damaging moves only).
+  // 0 means no priority move selected.
+  function bestDamagingPriority(mon){
+    let best = 0;
+    for (const mid of (mon?.moves || [])) {
+      if (!mid) continue;
+      const mv = state.moves?.[mid];
+      if (!mv) continue;
+      if (mv.category === "Status") continue; // ignore status moves for "先制" scoring
+      const p = Number(mv.priority || 0);
+      if (Number.isFinite(p) && p > best) best = p;
+    }
+    return best;
+  }
+
+
   function calcStat(mon, key){
     if (!mon.speciesId) return 0;
     const p = state.pokedex[mon.speciesId];
@@ -814,9 +837,19 @@
   }
 
   function renderMonCard(side, idx, mon) {
+    const metaBadges = [];
+    if (mon && mon.speciesId && state.dexLoaded) {
+      const sp = calcSpeed(mon);
+      const baseSpe = state.pokedex?.[mon.speciesId]?.baseStats?.spe || 0;
+      if (sp) metaBadges.push(el("span", {class:"badge", title:`S種族値 ${baseSpe} / 実数S ${sp}`}, `S:${sp}`));
+      const pr = bestDamagingPriority(mon);
+      if (pr > 0) metaBadges.push(el("span", {class:"badge", title:`優先度+${pr}の攻撃技あり`}, `先制:+${pr}`));
+    }
+
     const title = el("div", {class:"slotHead"},
       el("div", {class:"left"},
         el("span", {class:"badge"}, `#${idx+1}`),
+        ...metaBadges,
         el("label", {style:"display:flex; gap:8px; align-items:center; font-size:12px; color:var(--muted);"},
           el("input", {type:"checkbox", checked: mon.pick ? "" : null}),
           "選出"
@@ -1722,12 +1755,24 @@
 
     const sa = Math.log2(aOff) - Math.log2(bOff);
 
-    // small speed nudge
+    // speed & priority nudge (人間の対戦っぽさを少し足す)
     const spA = calcSpeed(a);
     const spB = calcSpeed(b);
-    const sp = spA && spB ? (spA > spB ? 0.12 : (spA < spB ? -0.12 : 0)) : 0;
+    let sp = 0;
+    if (spA && spB) {
+      const d = spA - spB;
+      // tiny differences are basically a coinflip
+      if (Math.abs(d) >= 3) sp = clampNum(d / 120, -0.18, 0.18);
+    }
 
-    return sa + sp;
+    const prA = bestDamagingPriority(a);
+    const prB = bestDamagingPriority(b);
+    let pr = 0;
+    if (prA || prB) {
+      pr = clampNum((prA - prB) * 0.08, -0.16, 0.16);
+    }
+
+    return sa + sp + pr;
   }
 
   function simulate(){
