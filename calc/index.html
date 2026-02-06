@@ -3,55 +3,52 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Battle Damage Calc(BDC)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Pick Lab 対戦・ダメージ計算</title>
+  <meta name="description" content="Pick Lab 対戦・ダメージ計算：選出シミュレーターと連携できるポケモン対戦向けダメージ計算ツール。">
   <link rel="stylesheet" href="assets/styles.css">
-<!-- BDC: begin head additions -->
-<title>Battle Damage Calc (BDC)</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="description" content="ポケモン対戦準拠のダメージ計算ツール。Battle Damage Calc (BDC)。" />
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
-<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png" />
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
-<link rel="manifest" href="manifest.webmanifest.html" />
-<meta name="theme-color" content="#121826" />
+  <link rel="stylesheet" href="assets/app.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.webmanifest.html" />
+  <meta name="theme-color" content="#ffb44a" />
 
-<!-- Open Graph / Twitter -->
-<meta property="og:type" content="website" />
-<meta property="og:site_name" content="Battle Damage Calc (BDC)" />
-<meta property="og:title" content="Battle Damage Calc (BDC)" />
-<meta property="og:description" content="ポケモン対戦準拠のダメージ計算ツール" />
-<meta property="og:url" content="https://bdcpp.pages.dev/" />
-<meta property="og:image" content="https://bdcpp.pages.dev/opengraph.png" />
-<meta name="twitter:card" content="summary_large_image" />
+  <!-- Open Graph / Twitter -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Pick Lab 対戦・ダメージ計算" />
+  <meta property="og:title" content="Pick Lab 対戦・ダメージ計算" />
+  <meta property="og:description" content="選出シミュレーターと連携できるダメージ計算ツール" />
+  <meta property="og:image" content="opengraph.png" />
+  <meta name="twitter:card" content="summary_large_image" />
 
-<!-- JSON-LD: WebApplication schema -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "name": "Battle Damage Calc (BDC)",
-  "url": "https://bdcpp.pages.dev",
-  "applicationCategory": "UtilitiesApplication",
-  "operatingSystem": "Web",
-  "inLanguage": "ja"
-}
-</script>
-<!-- BDC: end head additions -->
-<meta name="google-site-verification" content="18bkD956Gj3a_2GBjRWH7bKFoSrDXwbM0oE8xLWH1KE" />
+  <!-- JSON-LD: WebApplication schema -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Pick Lab 対戦・ダメージ計算",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Web",
+    "inLanguage": "ja"
+  }
+  </script>
+
+  <meta name="google-site-verification" content="18bkD956Gj3a_2GBjRWH7bKFoSrDXwbM0oE8xLWH1KE" />
 </head>
 <meta name="msvalidate.01" content="933F1D0EA1FB507A9B4A3BD4F64255B5" />
 <body>
 
   <div class="picklab-top" style="display:flex;gap:10px;align-items:center;justify-content:flex-end;margin:10px 0;">
-    <a class="btn" href="../" style="text-decoration:none;">← Pick Lab</a>
-    <button id="btnImportFromPickLab" class="btn" type="button" style="display:none;">Pick Labのチームを反映</button>
+    <a class="btn" href="../" style="text-decoration:none;">← トップ</a>
+    <a class="btn" href="../sim/" style="text-decoration:none;">シミュレーター</a>
+    <button id="btnImportFromPickLab" class="btn" type="button" style="display:none;">シミュのチームを反映</button>
     <span id="picklabImportMsg" style="font-size:12px;opacity:.85;"></span>
   </div>
   <script src="picklab-bridge.js"></script>
 
-  <h1>Battle Damage Calc(BDC)</h1>
-<a href="stats.html" target="_blank" rel="noopener noreferrer">ステータス</a>
+  <h1>Pick Lab 対戦・ダメージ計算</h1>
+<a class="btn" href="stats.html" target="_blank" rel="noopener noreferrer" style="text-decoration:none;margin:0 0 0 16px;">ステータス</a>
 <script src="bdc_timer_injector.js"></script>
   <div class="container">
     <div class="tabs">

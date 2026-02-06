@@ -3,113 +3,124 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Pick Lab</title>
+  <title>Pick Lab 対戦・ダメージ計算</title>
   <link rel="manifest" href="assets/manifest.webmanifest">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css"/>
+  <style>
+    .hero{display:grid;gap:14px}
+    .heroBtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+    a.btnLink{display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+    a.btnLink.primary{border-color:transparent;background:var(--accent);color:var(--text)}
+    a.btnLink.secondary{background:#fff}
+    .steps{margin:0;padding-left:18px;line-height:1.8}
+  </style>
 </head>
 <body>
 <header>
-  <h1>Pick Lab</h1>
-  <div class="sub">対戦・選出シミュレーター</div>
+  <h1>Pick Lab 対戦・ダメージ計算</h1>
+  <div class="sub">選出シミュレーターとダメージ計算を、同じチーム状態で行き来できます。</div>
   <div class="toolbar">
-    <button id="btnLoad" class="primary">図鑑データ読み込み</button>
-    <button id="btnExport" disabled>保存（JSON）</button>
-    <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
-      読込（JSON）
-      <input id="fileImport" type="file" accept="application/json" style="display:none"/>
-    </label>
-    <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
-      覚える技で絞る
-      <input id="toggleLearnset" type="checkbox"/>
-    </label>
-
-    <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
-      通常ルール適用
-      <input id="toggleNormalRules" type="checkbox" checked/>
-    </label>
-
-    <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
-      伝説・準伝・幻を除外
-      <input id="toggleNoLegends" type="checkbox" checked/>
-    </label>
-
-    <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
-      レギュ適用
-      <input id="toggleReg" type="checkbox"/>
-    </label>
-
-    <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
-      レギュCSV読込
-      <input id="fileRegCsv" type="file" accept=".csv,text/csv" style="display:none"/>
-    </label>
-    <button id="btnLoadRegDefault" class="btn" type="button">同梱レギュ読込</button>
-    <span id="regInfo" class="small note" style="margin-left:6px;">レギュ: 未設定</span>
-
-    <a class="btn" href="calc/" target="_blank" rel="noopener" style="text-decoration:none;">ダメージ計算</a>
-    <button id="btnSendToCalc" class="btn" type="button">チーム→ダメ計</button>
+    <a class="btn btnLink secondary" href="sim/">シミュレーターへ</a>
+    <a class="btn btnLink primary" href="calc/">ダメージ計算へ</a>
   </div>
-  <div id="status" class="note" style="margin-top:8px"></div>
 </header>
 
 <main>
-  <div class="kpi">
-    <div class="card">
+  <div class="hero">
+    <section class="card">
       <div class="panelTitle">
-        <h2>簡易シミュ</h2>
-        <div class="small">各チームから3体チェック → 計算</div>
+        <h2>このサイトについて</h2>
+        <div class="small">Pick Lab × BattleCalc 統合版</div>
       </div>
-      <div class="row">
-        <button id="btnSim" disabled>選出でシミュする</button>
-        <button id="btnAiPage" disabled>AI提案ページへ（別タブ）</button>
-        <button id="btnClearPicks" disabled>選出リセット</button>
-        <button id="btnAutoLeft" disabled>左をおまかせ選出</button>
-        <button id="btnAutoRight" disabled>右をおまかせ選出</button>
-        <button id="btnAutoBoth" disabled>両方おまかせ</button>
-        <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
-          相手選出を隠す
-          <input id="toggleHideRight" type="checkbox"/>
-        </label>
-        <div class="small">※本気の対戦エンジンではなく、タイプ＋技タイプ中心の“ざっくり”です。</div>
+      <div class="note">
+        対戦の「選出」→ 気になる対面の「ダメージ計算」までを、同じチーム情報のままスムーズに回すためのツールです。<br/>
+        ブラウザ内（ローカル）に保存され、外部に送信しません。
       </div>
-      <div id="simOut" class="note"></div>
-    </div>
-  </div>
-
-  <div class="grid" style="margin-top:14px">
-    <section>
-      <div class="panelTitle">
-        <h2>あなた側</h2>
-        <div class="small" id="leftHint"></div>
-      </div>
-      <div class="row">
-        <button id="btnAutoTeamLeft" disabled>左をおまかせで6体</button>
-        <button id="btnClearTeamLeft" disabled>左をクリア</button>
-      </div>
-      <div id="leftSlots" class="row" style="flex-direction:column"></div>
+      <div class="hr"></div>
+      <ul class="steps">
+        <li><b>シミュレーター</b>：6匹を作って、3匹選出のざっくり比較ができます。</li>
+        <li><b>ダメージ計算</b>：1対1／6対6で、技・努力値込みのダメージ計算ができます。</li>
+        <li><b>連携</b>：シミュ側の「チーム→ダメ計」で、作ったチームをそのまま計算へ反映できます。</li>
+      </ul>
     </section>
 
-    <section>
+    <section class="card">
       <div class="panelTitle">
-        <h2>相手側（おまかせ/AIの想定）</h2>
-        <div class="small" id="rightHint"></div>
+        <h2>メモ（任意）</h2>
+        <div class="small">保存しても公開されません</div>
       </div>
-
       <div class="row">
-        <button id="btnAutoTeamRight" disabled>右をおまかせで6体</button>
-        <button id="btnClearTeamRight" disabled>右をクリア</button>
+        <div class="field">
+          <label>チーム名</label>
+          <input id="introTeamName" type="text" placeholder="例：S1 受け寄り／雨軸 など"/>
+        </div>
+        <div class="field" style="min-width:260px;flex:2">
+          <label>メモ</label>
+          <textarea id="introMemo" placeholder="例：初手は○○想定、△△は後投げ… など"></textarea>
+        </div>
       </div>
-      <div id="rightSlots" class="row" style="flex-direction:column"></div>
+      <div class="row" style="margin-top:6px">
+        <button id="introSave" class="primary" type="button">保存</button>
+        <button id="introClear" type="button">消去</button>
+        <span id="introStatus" class="small" style="align-self:center"></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="panelTitle">
+        <h2>はじめかた</h2>
+        <div class="small">迷ったらこの順番</div>
+      </div>
+      <ol class="steps">
+        <li>「シミュレーターへ」→ 図鑑データ読み込み → 6匹を作る</li>
+        <li>「チーム→ダメ計」→ ダメ計側に自動反映</li>
+        <li>必要なら JSON保存して、構築を使い回す</li>
+      </ol>
     </section>
   </div>
 
   <div class="hr"></div>
   <div class="note">
-    うまく動かないときは、まず <span class="mono">/dex/ps/pokedex.json</span> にブラウザでアクセスできるか確認してください（404なら配置がズレています）。<br/>
-    それでもダメなら、いま出てるエラー文をそのまま貼ってください。そこだけ潰します。
+    ※表示・計算結果は参考用です（環境・仕様差分で変わる場合があります）。
   </div>
 </main>
 
-<script src="app.js"></script>
+<script>
+  (function(){
+    const K_NAME = 'plbc_intro_name';
+    const K_MEMO = 'plbc_intro_memo';
+    const $ = (id)=>document.getElementById(id);
+    const name = $('introTeamName');
+    const memo = $('introMemo');
+    const st = $('introStatus');
+
+    try{
+      name.value = localStorage.getItem(K_NAME) || '';
+      memo.value = localStorage.getItem(K_MEMO) || '';
+    }catch{}
+
+    $('introSave').addEventListener('click', ()=>{
+      try{
+        localStorage.setItem(K_NAME, name.value || '');
+        localStorage.setItem(K_MEMO, memo.value || '');
+        st.textContent = '保存しました';
+      }catch(e){
+        st.textContent = '保存に失敗しました';
+      }
+      setTimeout(()=>{ st.textContent=''; }, 1400);
+    });
+
+    $('introClear').addEventListener('click', ()=>{
+      name.value=''; memo.value='';
+      try{
+        localStorage.removeItem(K_NAME);
+        localStorage.removeItem(K_MEMO);
+      }catch{}
+      st.textContent = '消去しました';
+      setTimeout(()=>{ st.textContent=''; }, 1400);
+    });
+  })();
+</script>
 </body>
 </html>

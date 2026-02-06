@@ -178,7 +178,7 @@
   const REG_ENABLED_KEY = "PICKLAB_REG_ENABLED";
   const NORMAL_RULES_KEY = "PICKLAB_NORMAL_RULES";
   const NO_LEGENDS_KEY = "PICKLAB_NO_LEGENDS";
-  const DEFAULT_REG_URL = "./regulation.csv";
+  const DEFAULT_REG_URL = "/regulation.csv";
   function loadI18nCache(){
     try{
       const raw = localStorage.getItem(I18N_CACHE_KEY);
@@ -481,7 +481,7 @@
     if (state.learnsets) return state.learnsets;
     if (!learnsetsPromise) {
       setStatus("技の習得データ（learnset）を読み込み中…", "note");
-      learnsetsPromise = fetchJson("./dex/ps/learnsets.json")
+      learnsetsPromise = fetchJson("/dex/ps/learnsets.json")
         .then(ls => {
           state.learnsets = ls;
           state.learnsetCache = new Map();
@@ -503,12 +503,12 @@
     }
     setStatus("図鑑データを読み込み中…（初回は少し重い）");
     const [pokedex, moves, setsWrap, jpPokemonList, jpItemList, moveEnJa] = await Promise.all([
-      fetchJson("./dex/ps/pokedex.json"),
-      fetchJson("./dex/ps/moves.json"),
-      fetchJson("./dex/ps/sets/gen9ou.json"),
-      fetchJson("./dex/jp/POKEMON_ALL.json"),
-      fetchJson("./dex/jp/ITEM_ALL.json"),
-      fetchJson("./dex/jp/move_en_ja.json"),
+      fetchJson("/dex/ps/pokedex.json"),
+      fetchJson("/dex/ps/moves.json"),
+      fetchJson("/dex/ps/sets/gen9ou.json"),
+      fetchJson("/dex/jp/POKEMON_ALL.json"),
+      fetchJson("/dex/jp/ITEM_ALL.json"),
+      fetchJson("/dex/jp/move_en_ja.json"),
     ]);
 
     state.pokedex = pokedex;
@@ -1808,7 +1808,7 @@
     // Save to storage so AI page can open in a separate tab and still receive data
     try{ localStorage.setItem(AI_STATE_KEY, JSON.stringify(payload)); }catch(_){ }
     // Prefer opening in a new tab to keep the main page visible. Fallback to same tab if blocked.
-    const url = "ai.html";
+    const url = "/ai.html";
     const w = window.open(url, "_blank", "noopener");
     if (!w) location.href = url;
   }
@@ -1825,7 +1825,7 @@
       }
     };
     try{ localStorage.setItem("PICKLAB_TO_BDC_V1", JSON.stringify(payload)); }catch(_){ }
-    const url = "calc/?from=picklab";
+    const url = "/calc/?from=picklab";
     const w = window.open(url, "_blank", "noopener");
     if (!w) location.href = url;
   }
