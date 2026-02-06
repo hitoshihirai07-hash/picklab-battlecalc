@@ -19,12 +19,12 @@
   // --- State ---
   const state = {
     dexLoaded: false,
-    filterLearnset: false,
+    filterLearnset: true,
     ui: {
       hideRightPicks: false,
       normalRules: true,
       noLegends: true,
-      regEnabled: false,
+      regEnabled: true,
     },
     reg: {
       loaded: false,
@@ -590,8 +590,23 @@
     if (state.reg.rawCsv) parseRegulationCsv(state.reg.rawCsv);
     updateRegInfo();
 
+    // 常時ON: learnset & 同梱レギュ
+    if (state.filterLearnset) {
+      try { await ensureLearnsets(); } catch (err) { console.error(err); state.filterLearnset = false; }
+    }
+    try {
+      await loadRegulationFromUrl(DEFAULT_REG_URL);
+      state.ui.regEnabled = true;
+      persistSwitches();
+      updateRegInfo();
+    } catch (err) {
+      console.error(err);
+      state.ui.regEnabled = false;
+      persistSwitches();
+    }
+
     state.dexLoaded = true;
-    $("#btnExport").disabled = false;
+    const _be = $("#btnExport"); if (_be) _be.disabled = false;
     $("#btnSim").disabled = false;
     const ids = ["#btnClearPicks", "#btnAiPage", "#btnAutoLeft", "#btnAutoRight", "#btnAutoBoth", "#toggleHideRight", "#btnAutoTeamLeft", "#btnClearTeamLeft", "#btnAutoTeamRight", "#btnClearTeamRight", "#toggleLearnset", "#toggleNormalRules", "#toggleNoLegends", "#toggleReg", "#fileRegCsv", "#btnLoadRegDefault"];
     for (const sel of ids) {
@@ -623,7 +638,7 @@
       if (bp && Array.isArray(bp.tags)) tags = bp.tags;
     }
     const t = tags || [];
-    return t.some(x => /Restricted Legendary/i.test(x) || /Sub-Legendary/i.test(x) || /Mythical/i.test(x));
+    return t.some(x => /Restricted Legendary/i.test(x) || /Mythical/i.test(x));
   }
 
   function isAllowedByNormalRules(id){
@@ -804,7 +819,7 @@
     resetDismissRegistry();
     renderTeam("left", $("#leftSlots"));
     renderTeam("right", $("#rightSlots"));
-    $("#toggleLearnset").checked = state.filterLearnset;
+    const _tl = $("#toggleLearnset"); if (_tl) _tl.checked = state.filterLearnset;
     const hide = $("#toggleHideRight");
     if (hide) hide.checked = !!state.ui.hideRightPicks;
     const noLeg = $("#toggleNoLegends");
@@ -1879,6 +1894,10 @@
   
   // Apply saved switches to UI
   loadSwitchesFromStorage();
+  // UI簡略化: learnset/通常ルール/レギュ適用は常時ON
+  state.filterLearnset = true;
+  state.ui.normalRules = true;
+  state.ui.regEnabled = true;
   try{
     const nr0 = $("#toggleNormalRules"); if (nr0) nr0.checked = !!state.ui.normalRules;
     const nl0 = $("#toggleNoLegends"); if (nl0) nl0.checked = !!state.ui.noLegends;
@@ -1897,13 +1916,13 @@
     }
   });
 
-  $("#btnExport").addEventListener("click", exportJson);
+  const _btnExport = $("#btnExport"); if (_btnExport) _btnExport.addEventListener("click", exportJson);
 
   const _btnSendToCalc = $("#btnSendToCalc");
   if (_btnSendToCalc) _btnSendToCalc.addEventListener("click", saveCalcStateAndGo);
 
 
-  $("#fileImport").addEventListener("change", async (e) => {
+  const _fileImport = $("#fileImport"); if (_fileImport) _fileImport.addEventListener("change", async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
     try{
@@ -1917,7 +1936,7 @@
     }
   });
 
-  $("#toggleLearnset").addEventListener("change", async (e) => {
+  const _toggleLearnset = $("#toggleLearnset"); if (_toggleLearnset) _toggleLearnset.addEventListener("change", async (e) => {
     state.filterLearnset = !!e.target.checked;
     if (state.filterLearnset) {
       try {

@@ -15,36 +15,12 @@
   <div class="toolbar">
     <a class="btn" href="../" style="text-decoration:none;">トップ</a>
     <button id="btnLoad" class="primary">図鑑データ読み込み</button>
-    <button id="btnExport" disabled>保存（JSON）</button>
-    <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
-      読込（JSON）
-      <input id="fileImport" type="file" accept="application/json" style="display:none"/>
-    </label>
-    <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
-      覚える技で絞る
-      <input id="toggleLearnset" type="checkbox"/>
-    </label>
 
     <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
-      通常ルール適用
-      <input id="toggleNormalRules" type="checkbox" checked/>
-    </label>
-
-    <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
-      伝説・準伝・幻を除外
+      伝説・幻を除外
       <input id="toggleNoLegends" type="checkbox" checked/>
     </label>
 
-    <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
-      レギュ適用
-      <input id="toggleReg" type="checkbox"/>
-    </label>
-
-    <label class="btn" style="display:inline-flex;align-items:center;gap:8px;">
-      レギュCSV読込
-      <input id="fileRegCsv" type="file" accept=".csv,text/csv" style="display:none"/>
-    </label>
-    <button id="btnLoadRegDefault" class="btn" type="button">同梱レギュ読込</button>
     <span id="regInfo" class="small note" style="margin-left:6px;">レギュ: 未設定</span>
 
     <a class="btn" href="/calc/" target="_blank" rel="noopener" style="text-decoration:none;">ダメージ計算</a>
@@ -102,11 +78,6 @@
       </div>
       <div id="rightSlots" class="row" style="flex-direction:column"></div>
     </section>
-  </div>
-
-  <div class="hr"></div>
-  <div class="note">
-    うまく動かないときは、まず <span class="mono">/dex/ps/pokedex.json</span> にブラウザでアクセスできるか確認してください（404なら配置がズレています）。
   </div>
 </main>
 
