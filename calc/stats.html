@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Battle Damege Calc(BDC) - ステータス＆技</title>
+  <link rel="stylesheet" href="stats.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="title">Battle Damege Calc(BDC)</div>
+    <div class="header-actions"><button class="tab link" id="openSave" type="button">保存 / 読込</button></div>
+  </header>
+
+  <main class="wrap">
+
+  <div class="funcTabs" role="tablist" aria-label="機能タブ">
+    <button id="tabStats" class="funcTab active" role="tab" aria-controls="panelStats" aria-selected="true">ステータス</button>
+    <button id="tabCalc" class="funcTab" role="tab" aria-controls="panelCalc" aria-selected="false">計算</button>
+  </div>
+
+
+  <div id="panelCalc" class="featurePanel hidden" role="tabpanel" aria-labelledby="tabCalc">
+    <section class="card calcStatsCard">
+      <h3 class="calcTitle">実数値計算</h3>
+      <div class="miniHelp">レベルは下の 50/100 ラジオを使用。IVは31固定。</div>
+      <div class="calcStatsGrid">
+        <div class="row head"><div>能力</div><div>種族値</div><div>個体値</div><div>努力値</div><div>性格倍率</div><div>実数値</div></div>
+        <div class="row" data-key="hp">
+          <div class="cell stat">H</div>
+          <div class="cell"><input id="mini_base_hp" type="number" min="1" max="252" placeholder="—"></div>
+          <div class="cell mono readonly">31</div>
+          <div class="cell"><div class="evFlex"><input id="mini_ev_hp" type="number" min="0" max="252" step="4" value="0"><button type="button" class="btn evbtn" data-mini-ev="#mini_ev_hp" data-val="252">252</button><button type="button" class="btn evbtn" data-mini-ev="#mini_ev_hp" data-val="0">0</button></div></div>
+          <div class="cell na">—</div>
+          <div class="cell"><input id="mini_real_hp" class="mono" type="number" readonly></div>
+        </div>
+        <div class="row" data-key="atk">
+          <div class="cell stat">A</div>
+          <div class="cell"><input id="mini_base_atk" type="number" min="1" max="252" placeholder="—"></div>
+          <div class="cell mono readonly">31</div>
+          <div class="cell"><div class="evFlex"><input id="mini_ev_atk" type="number" min="0" max="252" step="4" value="0"><button type="button" class="btn evbtn" data-mini-ev="#mini_ev_atk" data-val="252">252</button><button type="button" class="btn evbtn" data-mini-ev="#mini_ev_atk" data-val="0">0</button></div></div>
+          <div class="cell"><select id="mini_nat_atk"><option value="1.1">1.1</option><option value="1" selected>1</option><option value="0.9">0.9</option></select></div>
+          <div class="cell"><input id="mini_real_atk" class="mono" type="number" readonly></div>
+        </div>
+        <div class="row" data-key="def">
+          <div class="cell stat">B</div>
+          <div class="cell"><input id="mini_base_def" type="number" min="1" max="252" placeholder="—"></div>
+          <div class="cell mono readonly">31</div>
+          <div class="cell"><div class="evFlex"><input id="mini_ev_def" type="number" min="0" max="252" step="4" value="0"><button type="button" class="btn evbtn" data-mini-ev="#mini_ev_def" data-val="252">252</button><button type="button" class="btn evbtn" data-mini-ev="#mini_ev_def" data-val="0">0</button></div></div>
+          <div class="cell"><select id="mini_nat_def"><option value="1.1">1.1</option><option value="1" selected>1</option><option value="0.9">0.9</option></select></div>
+          <div class="cell"><input id="mini_real_def" class="mono" type="number" readonly></div>
+        </div>
+        <div class="row" data-key="spa">
+          <div class="cell stat">C</div>
+          <div class="cell"><input id="mini_base_spa" type="number" min="1" max="252" placeholder="—"></div>
+          <div class="cell mono readonly">31</div>
+          <div class="cell"><div class="evFlex"><input id="mini_ev_spa" type="number" min="0" max="252" step="4" value="0"><button type="button" class="btn evbtn" data-mini-ev="#mini_ev_spa" data-val="252">252</button><button type="button" class="btn evbtn" data-mini-ev="#mini_ev_spa" data-val="0">0</button></div></div>
+          <div class="cell"><select id="mini_nat_spa"><option value="1.1">1.1</option><option value="1" selected>1</option><option value="0.9">0.9</option></select></div>
+          <div class="cell"><input id="mini_real_spa" class="mono" type="number" readonly></div>
+        </div>
+        <div class="row" data-key="spd">
+          <div class="cell stat">D</div>
+          <div class="cell"><input id="mini_base_spd" type="number" min="1" max="252" placeholder="—"></div>
+          <div class="cell mono readonly">31</div>
+          <div class="cell"><div class="evFlex"><input id="mini_ev_spd" type="number" min="0" max="252" step="4" value="0"><button type="button" class="btn evbtn" data-mini-ev="#mini_ev_spd" data-val="252">252</button><button type="button" class="btn evbtn" data-mini-ev="#mini_ev_spd" data-val="0">0</button></div></div>
+          <div class="cell"><select id="mini_nat_spd"><option value="1.1">1.1</option><option value="1" selected>1</option><option value="0.9">0.9</option></select></div>
+          <div class="cell"><input id="mini_real_spd" class="mono" type="number" readonly></div>
+        </div>
+        <div class="row" data-key="spe">
+          <div class="cell stat">S</div>
+          <div class="cell"><input id="mini_base_spe" type="number" min="1" max="252" placeholder="—"></div>
+          <div class="cell mono readonly">31</div>
+          <div class="cell"><div class="evFlex"><input id="mini_ev_spe" type="number" min="0" max="252" step="4" value="0"><button type="button" class="btn evbtn" data-mini-ev="#mini_ev_spe" data-val="252">252</button><button type="button" class="btn evbtn" data-mini-ev="#mini_ev_spe" data-val="0">0</button></div></div>
+          <div class="cell"><select id="mini_nat_spe"><option value="1.1">1.1</option><option value="1" selected>1</option><option value="0.9">0.9</option></select></div>
+          <div class="cell"><input id="mini_real_spe" class="mono" type="number" readonly></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="copyBar">
+      <span class="label">コピー:</span>
+      <button type="button" id="copyAtoAtk" class="btn tiny">A→攻撃値へ</button>
+      <button type="button" id="copyDtoDef" class="btn tiny">D→防御値へ</button>
+      <span class="hint">※防御側は 物理=B / 特殊=D を使用</span>
+    </div>
+
+    <section class="card calcCard">
+      <h2 class="calcTitle">ダメージ計算</h2>
+      <div class="row grid3">
+        <label>分類
+          <div class="seg">
+            <label class="segItem"><input type="radio" name="dmgCat" id="catPhysical" value="physical" checked> 物理</label>
+            <label class="segItem"><input type="radio" name="dmgCat" id="catSpecial"  value="special"> 特殊</label>
+          </div>
+        </label>
+        <label>レベル
+          <div class="seg">
+            <label class="segItem"><input type="radio" name="dmgLevel" id="lvl50" value="50" checked> 50</label>
+            <label class="segItem"><input type="radio" name="dmgLevel" id="lvl100" value="100"> 100</label>
+          </div>
+        </label>
+        <label>威力<input id="dmgPower" type="number" min="1" max="500" value="100"></label>
+      </div>
+
+      <div class="row grid3">
+        <label>攻撃値<input id="dmgAtk" type="number" min="1" max="9999" value="200"></label>
+        <label>防御値<input id="dmgDef" type="number" min="1" max="9999" value="150"></label>
+        <label>相手HP<input id="dmgHP" type="number" min="1" max="9999" placeholder="％表示用"></label>
+      </div>
+
+      <div class="row grid3">
+        <label>攻撃ランク
+          <select id="atkStage">
+            <option value="0" selected>±0</option>
+            <option value="1">+1</option><option value="2">+2</option><option value="3">+3</option>
+            <option value="4">+4</option><option value="5">+5</option><option value="6">+6</option>
+            <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option>
+            <option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option>
+          </select>
+        </label>
+        <label>防御ランク
+          <select id="defStage">
+            <option value="0" selected>±0</option>
+            <option value="1">+1</option><option value="2">+2</option><option value="3">+3</option>
+            <option value="4">+4</option><option value="5">+5</option><option value="6">+6</option>
+            <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option>
+            <option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option>
+          </select>
+        </label>
+        <label>STAB
+          <select id="stab">
+            <option value="1" selected>×1</option>
+            <option value="1.5">×1.5</option>
+            <option value="2">×2</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="row grid3">
+        <label>相性
+          <select id="dmgEffect">
+            <option value="0.25">×0.25</option>
+            <option value="0.5">×0.5</option>
+            <option value="1" selected>×1</option>
+            <option value="2">×2</option>
+            <option value="4">×4</option>
+          </select>
+        </label>
+        <label>急所
+          <select id="crit">
+            <option value="1" selected>なし</option>
+            <option value="1.5">あり（×1.5）</option>
+          </select>
+        </label>
+        <label>やけど（物理のみ）
+          <select id="burn">
+            <option value="1" selected>なし</option>
+            <option value="0.5">あり（×0.5）</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="row grid3">
+        <label>ヒット数
+          <select id="hitCount">
+            <option value="1" selected>1</option>
+            <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
+          </select>
+        </label>
+        <div></div><div></div>
+      </div>
+
+      <div class="row grid2">
+        <label>その他補正（乗算）<input id="otherMod" type="number" step="0.01" value="1"></label>
+        <div></div>
+      </div>
+
+      <div class="card inner">
+        <h3>結果</h3>
+        <div id="dmgSummary" class="mono small"></div>
+        <div id="dmgRolls" class="rolls"></div>
+      </div>
+
+      <div class="accuBar">
+        <button id="accuAdd" class="btn tiny">この結果を加算</button>
+        <button id="accuUndo" class="btn tiny">ひとつ戻す</button>
+        <button id="accuClear" class="btn tiny">リセット</button>
+      </div>
+      <div id="accuBox" class="card inner">
+        <h3>加算結果</h3>
+        <div id="accuList" class="accuList mono small">（なし）</div>
+        <div id="accuTotal" class="accuTotal mono">—</div>
+      </div>
+
+    </section>
+  </div>
+
+<div id="panelStats" class="featurePanel" role="tabpanel" aria-labelledby="tabStats">
+    <section class="card">
+      <!-- 上：ポケモン選択 -->
+      <div class="row grid3">
+        <label>ポケモン
+          <input id="speciesInput" type="text" list="pkmList" placeholder="例: ピカチュウ">
+          <datalist id="pkmList"></datalist>
+        </label>
+        <div class="typeRow">
+          <span class="type" id="type1"></span>
+          <span class="type" id="type2"></span>
+        </div>
+        <div class="evRemainWrap">
+          <span id="evRemain" class="muted"></span>
+        </div>
+      </div>
+
+      <!-- すぐ下：レベル(50/100固定) + 性格 -->
+      <div class="row grid2">
+        <label>レベル
+          <select id="level">
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+          </select>
+        </label>
+        <label>性格
+          <select id="nature">
+            <option value="">補正なし</option>
+            <option value="いじっぱり" data-up="atk" data-down="spa">いじっぱり（A↑C↓）</option>
+            <option value="ようき" data-up="spe" data-down="spa">ようき（S↑C↓）</option>
+            <option value="ひかえめ" data-up="spa" data-down="atk">ひかえめ（C↑A↓）</option>
+            <option value="おくびょう" data-up="spe" data-down="atk">おくびょう（S↑A↓）</option>
+            <option value="ずぶとい" data-up="def" data-down="atk">ずぶとい（B↑A↓）</option>
+            <option value="しんちょう" data-up="spd" data-down="spa">しんちょう（D↑C↓）</option>
+            <option value="のんき" data-up="def" data-down="spe">のんき（B↑S↓）</option>
+            <option value="なまいき" data-up="spd" data-down="spe">なまいき（D↑S↓）</option>
+            <option value="ゆうかん" data-up="atk" data-down="spe">ゆうかん（A↑S↓）</option>
+            <option value="れいせい" data-up="spa" data-down="spe">れいせい（C↑S↓）</option>
+            <option value="まじめ" data-up="" data-down="">まじめ（補正なし）</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- ステータス表 -->
+      <div class="tableWrap" role="table" aria-label="ステータス表">
+        <div class="thead" role="rowgroup">
+          <div class="tr" role="row">
+            <div class="th colStat" role="columnheader">能力</div>
+            <div class="th" role="columnheader">種族値</div>
+            <div class="th" role="columnheader">個体値 <span class="muted">（31/0）</span></div>
+            <div class="th" role="columnheader">努力値 <span class="muted">（252/0）</span></div>
+            <div class="th" role="columnheader">実数値</div>
+          </div>
+        </div>
+        <div class="tbody" role="rowgroup" id="tbody"></div>
+      </div>
+
+      <!-- 技（4つ） -->
+      <div class="moves">
+        <h2>技（4つ）</h2>
+        <div class="grid2">
+          <label>技1<input id="move1" type="text" list="movesList" autocomplete="on"></label>
+          <label>技2<input id="move2" type="text" list="movesList" autocomplete="on"></label>
+          <label>技3<input id="move3" type="text" list="movesList" autocomplete="on"></label>
+          <label>技4<input id="move4" type="text" list="movesList" autocomplete="on"></label>
+        </div>
+        <datalist id="movesList"></datalist>
+      </div>
+    
+      <!-- 保存/読込（インライン） -->
+      <section id="savePanel" class="panel hidden">
+        <div class="panel-head">
+          <strong>保存 / 読込</strong>
+          <button id="closeSave" class="iconBtn" aria-label="閉じる">×</button>
+        </div>
+        <div class="panel-body">
+          <div class="row">
+            <input id="saveName" type="text" placeholder="名前（例: ピカチュウAS252）" />
+            <button id="btnSave">保存</button>
+          </div>
+          <div class="row">
+            <label style="flex:1;">保存一覧
+              <select id="saveList" size="10" style="width:100%;"></select>
+            </label>
+          </div>
+          <div class="row">
+            <button id="btnLoad">読込</button>
+            <button id="btnDelete">削除</button>
+          </div>
+          <hr/>
+          <div class="row">
+            <button id="btnExport">JSONエクスポート</button>
+            <input id="fileImport" type="file" accept=".json,application/json" />
+            <button id="btnImport">JSONインポート</button>
+          </div>
+        </div>
+      </section>
+
+    </section>
+  </div>
+</main>
+
+  <!-- 先に stats.js で window.loadPokemonMaster を定義 -->
+  <script type="module" src="stats.js"></script>
+  <!-- ▼ ご指定のトグルスクリプトを同階層から読み込む（これが必須） -->
+  <script src="triple-checkbox-toggle-with-count.js"></script>
+</body>
+</html>

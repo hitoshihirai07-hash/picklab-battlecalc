@@ -1,0 +1,6 @@
+
+
+/* ---- Force-hide dropdown button in combo inputs ---- */
+.combo-btn{ display:none !important; }
+/* Expand input to full width when button is hidden */
+.combo-wrap{ grid-template-columns: 1fr !important; }

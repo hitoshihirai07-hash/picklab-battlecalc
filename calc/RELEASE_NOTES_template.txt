@@ -1,0 +1,7 @@
+【BDC アップデート】rYYYYMMDD
+- 追加：〇〇
+- 修正：〇〇
+- 調整：〇〇
+使ってみる ▶ https://YOUR-DOMAIN/
+不具合報告 ▶ https://YOUR-DOMAIN/contact.html
+#ポケモンSV #ダメージ計算 #BDC

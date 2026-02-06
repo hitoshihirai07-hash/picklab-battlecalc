@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Add any paths you do NOT want crawled like this:
+# Disallow: /beta/
+
+Sitemap: https://bdcpp.pages.dev/sitemap.xml

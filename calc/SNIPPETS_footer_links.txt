@@ -1,0 +1,5 @@
+[フッター用リンク例]
+- /disclaimer.html
+- /privacy.html
+- /robots.txt
+- /sitemap.xml

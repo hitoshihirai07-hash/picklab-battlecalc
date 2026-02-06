@@ -1,0 +1,270 @@
+
+/* BDC New Standalone v1 - Dark theme */
+:root{
+  --bg:#0f1a2b;
+  --panel:#1e293b;
+  --panel2:#1f2937;
+  --text:#f1f5f9;
+  --muted:#94a3b8;
+  --accent:#60a5fa;
+  --accent2:#34d399;
+  --warn:#f59e0b;
+  --danger:#ef4444;
+  --ok:#22c55e;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,'Noto Sans JP','Hiragino Kaku Gothic ProN',Meiryo,sans-serif}
+h1{font-size:20px;margin:0;padding:14px 16px;background:linear-gradient(90deg,var(--panel),transparent);border-bottom:1px solid #0b1220}
+.container{max-width:1100px;margin:18px auto;padding:0 16px}
+.tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.tab{padding:10px 14px;border-radius:10px;background:var(--panel2);cursor:pointer;user-select:none;border:1px solid #0b1220}
+.tab.active{outline:2px solid var(--accent)}
+.view{display:none;background:var(--panel);border:1px solid #0b1220;border-radius:12px;padding:14px}
+.view.active{display:block}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.card{flex:1;min-width:280px;background:#162033;border:1px solid #0b1220;border-radius:12px;padding:12px}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+input[type=text],input[type=number],select{width:100%;padding:8px;border-radius:8px;border:1px solid #0b1220;background:#0b1220;color:var(--text)}
+button{padding:10px 14px;border-radius:10px;border:1px solid #0b1220;background:#172554;color:var(--text);cursor:pointer}
+button:hover{filter:brightness(1.1)}
+.btn-accent{background:var(--accent);color:#0b1220;border-color:#0b1220}
+.btn-green{background:var(--accent2);color:#0b1220;border-color:#0b1220}
+.btn-danger{background:var(--danger);color:#fff;border-color:#0b1220}
+.small{font-size:12px;color:var(--muted)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.result{background:#111827;border:1px dashed #0b1220;border-radius:10px;padding:10px;margin-top:8px;white-space:pre-line}
+.hr{height:1px;background:#0b1220;margin:10px 0}
+.badge{display:inline-block;padding:2px 6px;border-radius:999px;background:#0b1220;border:1px solid #203048;color:var(--muted);font-size:11px;margin-right:6px}
+.inline-btns{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.move-line{padding:6px 8px;border-radius:8px;background:#0b1220;margin:6px 0;border:1px solid #0b1220}
+.checkbox{display:flex;align-items:center;gap:6px}
+.hidden{display:none}
+
+.hpbar{position:relative;height:16px;background:#1f2a34;border:1px solid #2b3a46;border-radius:8px;overflow:hidden;margin:4px 0}
+.hpfill{height:100%;background:#1bb36b}
+
+.stat-badge{margin-left:8px;color:#a7c2d6;font-size:12px;}
+
+.team-row{display:grid;grid-template-columns:130px 84px 96px 1.8fr;gap:6px;margin-bottom:6px}
+.team-def-row{display:grid;grid-template-columns:160px 92px 100px;gap:6px;margin-bottom:6px}
+.team-small{font-size:12px;color:#93a8b3}
+.team-table{width:100%;border-collapse:collapse}
+.team-table th,.team-table td{border:1px solid #2b3a46;padding:6px;vertical-align:top}
+.team-table th{background:#101a22;color:#cfdde6;position:sticky;top:0}
+
+.team-moves{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.team-moves input{width:100%}
+
+.team-rightgrid{display:grid;grid-template-columns:300px 1fr;gap:12px;align-items:start}
+.team-side{min-height:260px;max-height:560px;overflow:auto;border:1px solid #2b3a46;border-radius:10px;padding:8px;background:#0f1720}
+.team-side table{width:100%}
+.team-side pre{white-space:pre-wrap}
+
+.combo-wrap{position:relative; display:flex; gap:6px; align-items:center}
+.combo-wrap input{flex:1}
+.combo-btn{min-width:28px;height:34px;border:1px solid #2b3a46;border-radius:8px;background:#0f1d29;color:#d8e6f0;cursor:pointer}
+.combo-btn:hover{background:#132435}
+.combo-menu{position:absolute; left:0; right:0; top:105%; background:#0b1620; border:1px solid #2b3a46; border-radius:10px; display:none; z-index:50; max-height:260px; overflow:auto; box-shadow:0 8px 18px rgba(0,0,0,.4)}
+.combo-menu.open{display:block}
+.combo-list{display:flex; flex-direction:column}
+.combo-item{padding:8px 10px; cursor:pointer}
+.combo-item:hover{background:#132435}
+.combo-empty{padding:8px 10px; color:#89a2b2}
+
+.team-row{display:grid; grid-template-columns: 180px 80px 90px repeat(4, minmax(160px,1fr)); gap:10px; align-items:center}
+.team-row .move-input{width:100%}
+
+
+/* === 6v6 layout tuning: widen move fields === */
+.team-row{
+  display:grid;
+  grid-template-columns: 180px 84px 96px 1fr; /* name / nature / ev / moves block */
+  gap:12px;
+  align-items:center;
+}
+.team-row .team-moves{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(200px, 1fr));
+  gap:12px;
+}
+/* Ensure combo wrapper expands within grid cells */
+.team-row .combo-wrap{ display:flex; align-items:center; gap:6px; width:100%; }
+.team-row .combo-wrap input{ flex:1; min-width:160px; }
+.team-row .combo-btn{ min-width:30px; height:36px; }
+.team-row input[type="text"]{ width:100%; }
+
+
+/* === 6v6 team view: stack defender under attacker to avoid overlap === */
+#view-team .row{display:flex; flex-direction:column; gap:14px}
+#view-team .row .card{width:100%; max-width:100%}
+#teamAtkGrid, #teamDefGrid{width:100%}
+
+
+/* === 6v6 width tuning (v6a18) === */
+.team-row{
+  display:grid;
+  grid-template-columns: 160px 78px 90px 1fr; /* name / nature / ev / moves block */
+  gap:10px;
+  align-items:center;
+}
+.team-row .team-moves{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(170px, 1fr));
+  gap:10px;
+}
+@media (max-width: 1500px){
+  .team-row{ grid-template-columns: 150px 74px 86px 1fr; }
+  .team-row .team-moves{ grid-template-columns: repeat(4, minmax(160px, 1fr)); }
+}
+@media (max-width: 1360px){
+  /* when tighter, wrap moves into 2 rows to avoid horizontal overflow */
+  .team-row .team-moves{ grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+}
+
+
+/* v6a19: fix combo buttons visibility for 技1〜4 and shrink columns */
+#view-team .team-row{ grid-template-columns: 140px 72px 86px 1fr; }
+#view-team .team-row .team-moves{ grid-template-columns: repeat(4, minmax(160px,1fr)); }
+#view-team .team-row .combo-wrap{ width:100%; }
+#view-team .team-row .combo-wrap input{ min-width:0; flex:1; }
+#view-team .team-row input[type="text"]{ min-width:0; }
+
+
+/* === v6a20: 6v6 layout — attacker left, defender right; moves can wrap to 2 rows; tweak widths === */
+
+/* Place defender to the RIGHT again on wide screens */
+#view-team .row{display:flex; flex-direction:row; gap:16px; align-items:flex-start; flex-wrap:nowrap;}
+#view-team .row .card{flex:1 1 50%; max-width:50%;}
+
+/* Attacker row: narrower name/nature/ev; give more to moves */
+#view-team .team-row{display:grid; grid-template-columns: 130px 70px 82px 1fr; gap:10px; align-items:center;}
+#view-team .team-row input[type="text"], 
+#view-team .team-row select{ width:100%; min-width:0; }
+#view-team .team-row .team-moves{ display:grid; grid-template-columns: repeat(4, minmax(180px,1fr)); gap:10px; }
+#view-team .team-row .combo-wrap{ display:flex; gap:6px; align-items:center; width:100%; }
+#view-team .team-row .combo-wrap input{ flex:1; min-width:0; }
+#view-team .team-row .combo-btn{ min-width:30px; height:36px; }
+
+/* Allow moves to wrap into 2 rows when horizontal space is tight */
+@media (max-width: 1700px){
+  #view-team .row .card{flex:1 1 48%; max-width:48%;}
+  #view-team .team-row{ grid-template-columns: 120px 68px 78px 1fr; }
+  #view-team .team-row .team-moves{ grid-template-columns: repeat(2, minmax(220px,1fr)); }
+}
+@media (max-width: 1450px){
+  #view-team .row{flex-wrap:wrap;}
+  #view-team .row .card{flex:1 1 100%; max-width:100%;}
+  /* On narrow screens, stack again for safety */
+  #view-team .team-row .team-moves{ grid-template-columns: repeat(2, minmax(200px,1fr)); }
+}
+
+
+/* === v6a21: Team view fixed 2-row layout (attacker row then defender row) === */
+#view-team .row{ display:flex; flex-direction:column; gap:16px; align-items:stretch; }
+#view-team .row .card{ width:100%; max-width:100%; flex:none; }
+
+/* Attacker/Defender rows: allow move fields to break below name/nature/EV */
+#view-team .team-row{ display:grid; grid-template-columns: 130px 70px 82px 1fr; gap:10px; align-items:center; }
+#view-team .team-row input[type="text"], #view-team .team-row select{ width:100%; min-width:0; }
+#view-team .team-row .team-moves{ 
+  display:grid; 
+  grid-template-columns: repeat(2, minmax(220px, 1fr)); 
+  gap:10px; 
+  grid-column: 1 / -1;  /* moves span full row under name/nature/EV */
+}
+#view-team .team-row .combo-wrap{ display:flex; gap:6px; align-items:center; width:100%; }
+#view-team .team-row .combo-wrap input{ flex:1; min-width:0; }
+#view-team .team-row .combo-btn{ min-width:30px; height:36px; }
+
+
+/* === Party tab layout === */
+#view-party .party-row{display:grid; grid-template-columns: 180px 120px 220px 1fr; gap:10px; align-items:center;}
+#view-party .party-row .evs{display:grid; grid-template-columns: repeat(6, 40px); gap:6px;}
+#view-party .party-row .party-moves{display:grid; grid-template-columns: repeat(4, minmax(180px, 1fr)); gap:8px;}
+@media (max-width: 1500px){
+  #view-party .party-row{grid-template-columns: 160px 110px 210px 1fr;}
+  #view-party .party-row .party-moves{grid-template-columns: repeat(2, minmax(220px, 1fr)); grid-column: 1 / -1;}
+}
+
+
+/* === Party layout override (always-visible, 2-col grid, moves 2 rows fixed) === */
+#partyGrid{display:grid; grid-template-columns: repeat(2, minmax(560px, 1fr)); gap:16px; align-items:stretch;}
+#view-party .card{padding:12px;}
+#view-party .party-row{display:grid; grid-template-columns: 170px 120px 260px 1fr; gap:10px; align-items:center;}
+#view-party .party-row .evs{display:grid; grid-template-columns: repeat(6, 42px); gap:6px;}
+#view-party .party-row .party-moves{grid-column:1 / -1; display:grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); grid-auto-rows:auto; gap:8px;}
+#view-party .party-row .party-moves .combo-wrap{display:grid; grid-template-columns: 1fr 36px; gap:6px; align-items:center;}
+#view-party input[type="text"], #view-party input[type="number"]{height:36px;}
+/* No auto-collapse on width; keep two columns until very small screens */
+@media (max-width: 1180px){
+  #partyGrid{grid-template-columns: 1fr;}
+}
+
+
+/* === Party layout vertical v2 (EV visible) === */
+#partyGrid{display:grid; grid-template-columns: 1fr; gap:18px; align-items:stretch;}
+#view-party .card{padding:14px;}
+#view-party .party-row{display:grid; grid-template-columns: 180px 140px 320px 1fr; gap:12px; align-items:center;}
+#view-party .party-row .evs{display:grid; grid-template-columns: repeat(6, 56px); gap:8px;}
+#view-party .party-row .evs input[type="number"]{
+  width:56px; min-width:56px; text-align:center; 
+  background:#0d1a22; color:#e8f6ff; border:1px solid rgba(255,255,255,.18);
+  border-radius:10px; font-weight:600; outline:none;
+}
+#view-party .party-row .evs input[type="number"]::placeholder{color:rgba(255,255,255,.45);}
+#view-party .party-row .party-moves{grid-column: 1 / -1; display:grid; grid-template-columns: repeat(2, minmax(280px, 1fr)); gap:10px;}
+#view-party .party-row .party-moves .combo-wrap{display:grid; grid-template-columns: 1fr 40px; gap:8px; align-items:center;}
+#view-party input[type="text"], #view-party input[type="number"]{height:38px;}
+
+/* High-contrast apply buttons */
+#applyAtkAll{background:#22c55e;border:none;color:#07131e;font-weight:700;letter-spacing:.02em;}
+#applyDefAll{background:#60a5fa;border:none;color:#07131e;font-weight:700;letter-spacing=.02em;}
+#applyAtkAll:hover,#applyDefAll:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.35);}
+
+
+/* === EV quick buttons & total === */
+#view-party .evcell{display:grid; grid-template-rows: 38px 26px; gap:6px; justify-items:center;}
+#view-party .evcell .quick{display:flex; gap:6px;}
+#view-party .evbtn{height:24px; padding:0 10px; border-radius:999px; border:none; cursor:pointer; font-weight:700;}
+#view-party .evbtn.ev252{background:#22c55e; color:#06210f;}
+#view-party .evbtn.ev0{background:#ef4444; color:#2a0a0a;}
+#view-party .evtotal{grid-column: 3 / 4; justify-self:end; font-weight:700; opacity:.9;}
+#view-party .evtotal.over{color:#fca5a5;}
+
+
+
+/* ===== Mobile layout (<= 900px) ===== */
+@media (max-width: 900px){
+  :root{ --pad:10px; --gap:10px; }
+  body{ font-size:15px; }
+  .container{ padding:10px; }
+  /* shared cards */
+  .card{ padding:12px; }
+  input[type="text"], input[type="number"], select, button{ height:42px; font-size:15px; }
+  /* 1v1 generic two-column areas collapse */
+  .grid-2{ grid-template-columns: 1fr !important; }
+  .row{ flex-direction: column !important; gap:12px !important; }
+  /* 6v6 */
+  #view-team .row{ flex-direction: column !important; }
+  #view-team .team-rightgrid{ grid-template-columns: 1fr !important; }
+  #view-team .team-row{ grid-template-columns: 1fr !important; }
+  #view-team .team-row .team-moves{ grid-template-columns: 1fr 1fr !important; }
+  #view-team .result-table{ overflow-x:auto; display:block; }
+  #view-team .result-table table{ min-width:560px; }
+  /* Party */
+  #partyGrid{ grid-template-columns: 1fr !important; }
+  #view-party .party-row{ grid-template-columns: 1fr !important; }
+  #view-party .party-row .evs{ grid-template-columns: repeat(3, 1fr) !important; }
+  #view-party .party-row .party-moves{ grid-template-columns: 1fr !important; }
+  #view-party .evtotal{ grid-column: 1 / -1; justify-self: start; margin-top:6px; }
+  /* Tables */
+  table{ font-size:14px; }
+  th, td{ padding:8px 10px; }
+}
+
+
+/* --- mobile tweak: make 6v6 defense EV dropdown visible by narrowing name --- */
+@media (max-width: 560px){
+  .team-def-row{ grid-template-columns: 120px 92px 92px !important; }
+  .team-def-row input[type="text"], .team-def-row select{ min-width:0; width:100%; }
+}

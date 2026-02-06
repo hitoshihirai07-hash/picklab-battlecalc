@@ -1,0 +1,3 @@
+2025-10-15 公開ビルド（mobile defEV fix ベース）
+- 免責/プライバシー/404/robots/_headers 追加
+- 公開手順のREADMEを同梱

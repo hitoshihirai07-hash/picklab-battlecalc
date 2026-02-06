@@ -1,0 +1,6 @@
+Battle Damege Calc（略称：BDC）は、ポケットモンスターシリーズの非公式ファンメイドツールです。
+Nintendo・Creatures Inc.・GAME FREAK inc.・The Pokémon Company とは一切関係がありません。
+「ポケットモンスター」「ポケモン」および各種名称は各社の商標または登録商標です。
+本ツールの計算ロジック・表示結果の正確性は保証されません。利用は自己責任でお願いします。
+
+Copyright (c) 2025 BDC authors

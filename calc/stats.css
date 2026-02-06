@@ -1,0 +1,123 @@
+/* Dark navy theme (スクショ準拠) */
+:root{
+  --bg:#0b1220;
+  --panel:#121a2a;
+  --panel2:#0f1726;
+  --text:#d9e2ff;
+  --muted:#8aa0d0;
+  --line:#223154;
+  --blue:#2f6df6;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif}
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--panel2);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+.title{font-weight:700;letter-spacing:.2px}
+.tabs{display:flex;gap:10px;margin-left:auto;align-items:center}
+.tab{background:var(--panel);color:var(--text);border:1px solid var(--line);padding:8px 12px;border-radius:12px;cursor:pointer}
+.tab.active{outline:2px solid var(--blue);box-shadow:0 0 0 2px rgba(47,109,246,.25) inset}
+.tab.link{text-decoration:none;display:inline-flex;align-items:center}
+.wrap{max-width:980px;margin:18px auto;padding:0 16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.2);padding:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:end}
+.row{margin-bottom:10px}
+label{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--muted)}
+input,select,button{font:inherit}
+input[type=text], select{
+  background:var(--panel2);color:var(--text);border:1px solid var(--line);
+  border-radius:10px;padding:8px;outline:none
+}
+input:focus, select:focus{border-color:var(--blue)}
+.typeRow{display:flex;gap:8px;justify-content:flex-end}
+.type{min-width:72px;text-align:center;padding:6px 10px;border-radius:999px;background:#1a2745;color:#d0e1ff;border:1px solid var(--line)}
+.evRemainWrap{display:flex;align-items:flex-end;justify-content:flex-end}
+.quickRow{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 8px}
+.quickRow .group{display:flex;align-items:center;gap:8px}
+.quickRow .caption{color:var(--muted);font-size:13px}
+.quickRow button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:6px 10px;cursor:pointer}
+.tableWrap{margin-top:8px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.thead .tr, .tbody .tr{display:grid;grid-template-columns:110px 1fr 1fr 1fr 1fr;border-bottom:1px solid var(--line)}
+.th,.td{padding:10px}
+.th{background:#0e1730;color:#bcd0ff;font-size:13px}
+.td{background:transparent}
+.colStat{font-weight:700}
+.flex{display:flex;gap:6px;align-items:center}
+.btns{display:flex;gap:6px}
+.btns button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:4px 8px;cursor:pointer}
+.readonly{background:#0a1326;border:1px dashed var(--line)}
+.muted{color:var(--muted);font-size:12px}
+@media (max-width:860px){
+  .grid2{grid-template-columns:1fr}
+  .grid3{grid-template-columns:1fr 1fr;grid-auto-rows:auto}
+  .thead .tr, .tbody .tr{grid-template-columns:90px 1fr 1fr 1fr 1fr}
+}
+
+/* ===== Visibility fix for read-only numeric fields (種族値 / 実数値) ===== */
+input.readonly, input[readonly]{
+  color:#e6efff !important;
+  -webkit-text-fill-color:#e6efff;
+  opacity:1 !important;
+  background:#0b1530;        /* slightly brighter than row bg for contrast */
+  border:1px solid #2b3d6d;  /* clearer outline */
+  font-weight:600;
+  caret-color:transparent;
+}
+/* Firefox specific */
+input:-moz-read-only{ color:#e6efff !important; opacity:1 !important; }
+/* Column spacing tweak so numbers don't feel cramped */
+.td input.readonly{ padding:8px 10px; }
+
+/* ===== Inline Save/Load Panel (no overlay) ===== */
+.panel{margin-top:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.panel.hidden{display:none}
+.panel-head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.panel-body{padding:12px}
+.iconBtn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:6px 10px;cursor:pointer}
+.panel-body .row{margin:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.panel-body input[type=text]{flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px}
+.panel-body button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer}
+.panel-body button:hover{border-color:var(--blue)}
+
+/* ===== Clean header (no fake tabs) ===== */
+.header-actions{margin-left:auto;display:flex;gap:10px;align-items:center}
+.header-actions .tab{background:var(--panel);color:var(--text);border:1px solid var(--line);padding:8px 12px;border-radius:12px;cursor:pointer}
+
+.featurePanel{display:block}
+.featurePanel.hidden{display:none!important}
+.funcTabs{display:flex;gap:8px;padding:8px 12px}
+.funcTab{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:6px 10px;cursor:pointer}
+.funcTab.active{background:#0c1632}
+.calcCard{margin:14px auto; max-width:1000px}
+.calcTitle{margin-bottom:8px}
+.seg{display:flex;gap:8px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.segItem{display:flex;gap:6px;align-items:center}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+.small{font-size:14px;color:#d7e0ff}
+.rolls{display:grid;grid-template-columns:1fr;gap:6px;margin-top:8px}
+.rolls .row{display:flex;justify-content:space-between;gap:10px;background:#0c1632;border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+@media (min-width:720px){ .rolls{grid-template-columns:1fr 1fr} }
+.calcStatsCard{margin-bottom:12px}
+.calcStatsGrid{display:grid; gap:6px}
+.calcStatsGrid .row{display:grid; grid-template-columns: 60px 1fr 70px 1.6fr 1fr 1fr; gap:8px; align-items:center}
+.calcStatsGrid .row.head{font-weight:600; opacity:.9}
+.calcStatsGrid .cell input[type=number]{width:100%}
+.calcStatsGrid .cell.readonly{opacity:.8}
+.calcStatsGrid .cell.na{opacity:.6;text-align:center}
+.evFlex{display:flex; gap:6px; align-items:center}
+.evbtn{padding:4px 8px; border:1px solid var(--line); background:transparent; color:var(--text); border-radius:8px; cursor:pointer}
+.evbtn:hover{background:#0c1632}
+.copyBar{display:flex;gap:8px;align-items:center;margin:8px 0 6px}
+.copyBar .label{opacity:.9}
+.copyBar .hint{opacity:.6;font-size:12px}
+.btn.tiny{padding:3px 8px;border:1px solid var(--line);background:transparent;color:var(--text);border-radius:8px;cursor:pointer}
+.btn.tiny:hover{background:#0c1632}
+@media (max-width: 640px){
+  .calcStatsGrid .row{grid-template-columns: 44px 1fr 54px 1.2fr .8fr 1fr;}
+}
+
+.accuBar{display:flex;gap:8px;align-items:center;margin:8px 0}
+.accuList{display:grid;gap:4px;margin-top:6px}
+.accuRow{display:grid;grid-template-columns: 40px 1fr auto;gap:8px;align-items:center;background:#0c1632;border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+.accuTotal{margin-top:8px;font-weight:600}
+@media (max-width: 640px){ .accuRow{grid-template-columns: 32px 1fr auto} }
