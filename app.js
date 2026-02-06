@@ -97,15 +97,24 @@
   function registerDismiss(wrap, list){ dismissRegistry.push({wrap, list}); }
 
   let _rafRender = null;
+
+let _lastUserScrollAt = 0;
+window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { passive: true });
   function scheduleRenderAll(){
     if (_rafRender) return;
     const y = window.scrollY;
     _rafRender = requestAnimationFrame(() => {
       _rafRender = null;
       renderAll();
-      // Mobile browsers sometimes jump scroll on heavy re-render; restore.
+
+      // Avoid fighting user scroll: only restore if the browser "jumps" and the user isn't scrolling.
       requestAnimationFrame(() => {
-        try { window.scrollTo(0, y); } catch(_) {}
+        try {
+          const now = Date.now();
+          const jumped = Math.abs((window.scrollY || 0) - y) > 80;
+          const userScrolling = (now - (_lastUserScrollAt || 0)) < 250;
+          if (jumped && !userScrolling) window.scrollTo(0, y);
+        } catch(_) {}
       });
     });
   }
@@ -485,7 +494,7 @@
       fetchJson("/dex/jp/POKEMON_ALL.json"),
       fetchJson("/dex/jp/ITEM_ALL.json"),
       fetchJson("/dex/jp/moveid_ja.json"),
-      fetchJson("/dex/jp/move_custom_ja.json"),
+      fetchJson("/dex/jp/move_custom_ja.json?v=20260206_ja1"),
     ]);
 
     state.pokedex = pokedex;

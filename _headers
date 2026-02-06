@@ -22,6 +22,12 @@
 /calc/assets/*
   Cache-Control: public, max-age=604800
 
+/dex/jp/move_custom_ja.json
+  Cache-Control: no-cache
+
+/dex/jp/move_missing.csv
+  Cache-Control: no-cache
+
 /dex/*
   Cache-Control: public, max-age=31536000, immutable
 
