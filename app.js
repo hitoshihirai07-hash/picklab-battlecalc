@@ -39,6 +39,7 @@
     jpPokemonById: new Map(), // showdownId -> {ja,en}
     jpItemByEn: new Map(),    // English name -> ja
     jpMoveByEn: new Map(),    // English move name -> ja
+    jpMoveById: new Map(),    // moveId -> ja
     jpAbilityByEn: new Map(), // English ability name -> ja
     pendingJa: { move:new Map(), ability:new Map() },
     moveIdByName: new Map(),  // English move name -> id
@@ -95,29 +96,16 @@
   function resetDismissRegistry(){ dismissRegistry = []; }
   function registerDismiss(wrap, list){ dismissRegistry.push({wrap, list}); }
 
-  // Track user-driven scrolling so we don't "snap back" during async re-renders.
-  // (JP name resolution etc. can trigger a render later; forcing scroll restore breaks UX.)
-  let _lastUserScrollAt = 0;
-  window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, {passive:true});
-
   let _rafRender = null;
   function scheduleRenderAll(){
     if (_rafRender) return;
     const y = window.scrollY;
-    const scheduledAt = Date.now();
     _rafRender = requestAnimationFrame(() => {
       _rafRender = null;
       renderAll();
-      // Mobile browsers sometimes jump scroll on heavy re-render.
-      // Restore ONLY when the user hasn't scrolled since scheduling.
+      // Mobile browsers sometimes jump scroll on heavy re-render; restore.
       requestAnimationFrame(() => {
-        try {
-          // If user scrolled recently (or after scheduling), do NOT force restore.
-          if (_lastUserScrollAt && _lastUserScrollAt > scheduledAt) return;
-          if (Date.now() - _lastUserScrollAt < 250) return;
-          const delta = Math.abs(window.scrollY - y);
-          if (delta >= 120) window.scrollTo(0, y);
-        } catch(_) {}
+        try { window.scrollTo(0, y); } catch(_) {}
       });
     });
   }
@@ -167,8 +155,10 @@
   function fmtMove(id){
     if (!id) return "";
     const en = state.moveNameById.get(id) || id;
-    const ja = state.jpMoveByEn.get(en);
-    return ja ? ja : en;
+    const ja = (state.jpMoveById && state.jpMoveById.get(id)) || state.jpMoveByEn.get(en) || "";
+    if (ja) return ja;
+    const num = state.moves?.[id]?.num;
+    return num ? `未登録技 #${num}` : "未登録技";
   }
 
   function fmtAbility(en){
@@ -415,10 +405,8 @@
       .replace(/^-|-$/g, "");
   }
 
-  async function fetchPokeapi(kind, slug){
-    // PokeAPIは使わない方針（完全JSON運用）。
-    // 旧実装との互換のために関数は残すが、常に失敗扱いにする。
-    throw new Error("PokeAPI disabled");
+  async function fetchPokeapi(){
+    throw new Error("PokeAPI is disabled (local JSON only).");
   }
 
   function pickJaName(names){
@@ -432,33 +420,28 @@
   }
 
   async function ensureMoveJa(enName){
-    // 既存の en→ja マップ（/dex/jp/move_en_ja.json と端末キャッシュ）だけを参照。
-    // ネットワーク取得は行わない。
     if (!enName) return "";
-    if (state.jpMoveByEn.has(enName)) return state.jpMoveByEn.get(enName) || "";
-
-    // IMPORTANT:
-    // 旧実装では「未登録 → fetch → 翻訳Map更新 → 再描画」という流れでした。
-    // いまはネット取得をしない方針なので、未登録のままだと
-    // 「未登録 → ensureMoveJa() → then(scheduleRenderAll)」が永遠に繰り返され、
-    // 画面が常時再描画されてクリック/選択が効かなくなります。
-    // そのため、未登録のものは “英語名をそのまま” 登録して再描画ループを止めます。
-    state.jpMoveByEn.set(enName, enName);
-    saveI18nCache();
-    return enName;
+    if (state.jpMoveByEn && state.jpMoveByEn.has(enName)) return state.jpMoveByEn.get(enName) || "";
+    const mid = state.moveIdByName.get(enName);
+    if (mid && state.jpMoveById && state.jpMoveById.has(mid)) return state.jpMoveById.get(mid) || "";
+    return "";
   }
 
   async function ensureAbilityJa(enName){
-    // 特性の日本語名は端末キャッシュがある場合のみ表示（ネット取得しない）。
     if (!enName) return "";
     if (state.jpAbilityByEn && state.jpAbilityByEn.has(enName)) return state.jpAbilityByEn.get(enName) || "";
+    return "";
+  }
 
-    // move と同様に、未登録のままにすると再描画ループの原因になります。
-    // 日本語が無い場合は英語名を登録してフォールバック表示にします。
-    if (!state.jpAbilityByEn) state.jpAbilityByEn = new Map();
-    state.jpAbilityByEn.set(enName, enName);
-    saveI18nCache();
-    return enName;
+        return ja;
+      }catch{
+        return "";
+      } finally {
+        state.pendingJa.ability.delete(enName);
+      }
+    })();
+    state.pendingJa.ability.set(enName, p);
+    return p;
   }
 // --- Dex loading ---
   async function fetchJson(relPath){
@@ -495,25 +478,29 @@
       throw new Error("file:// 直開きだとブラウザ制限でJSONを読めません。Cloudflare Pages等に置いたURLで開いてください。");
     }
     setStatus("図鑑データを読み込み中…（初回は少し重い）");
-    const [pokedex, moves, setsWrap, jpPokemonList, jpItemList, moveEnJa] = await Promise.all([
+    const [pokedex, moves, setsWrap, jpPokemonList, jpItemList, moveIdJaBase, moveIdJaCustom] = await Promise.all([
       fetchJson("/dex/ps/pokedex.json"),
       fetchJson("/dex/ps/moves.json"),
       fetchJson("/dex/ps/sets/gen9ou.json"),
       fetchJson("/dex/jp/POKEMON_ALL.json"),
       fetchJson("/dex/jp/ITEM_ALL.json"),
-      fetchJson("/dex/jp/move_en_ja.json"),
+      fetchJson("/dex/jp/moveid_ja.json"),
+      fetchJson("/dex/jp/move_custom_ja.json"),
     ]);
 
     state.pokedex = pokedex;
     state.moves = moves;
     state.learnsets = null;
     state.sets = setsWrap && setsWrap.dex ? setsWrap.dex : (setsWrap || {});
-    state.jpMoveByEn = new Map(Object.entries(moveEnJa || {}));
 
-    // merge cached translations (browser localStorage)
-    const cache = loadI18nCache();
-    if (cache.move) for (const [en,ja] of Object.entries(cache.move)) state.jpMoveByEn.set(en, ja);
-    if (cache.ability) state.jpAbilityByEn = new Map(Object.entries(cache.ability));
+    // moves i18n (Japanese) - local files only (no external API)
+    const moveIdJa = Object.assign({}, (moveIdJaBase || {}), (moveIdJaCustom || {}));
+    state.jpMoveById = new Map(Object.entries(moveIdJa));
+    state.jpMoveByEn = new Map();
+    for (const [id, ja] of state.jpMoveById.entries()) {
+      const en = state.moves?.[id]?.name;
+      if (en) state.jpMoveByEn.set(en, ja);
+    }
 
     // move maps
     state.moveIdByName = new Map();
@@ -531,9 +518,9 @@
     for (const [id, m] of Object.entries(moves)) {
       if (!m || !m.name) continue;
       const en = m.name;
-      const ja = state.jpMoveByEn.get(en) || "";
-      const label = ja || en;
-      const opt = {id, en, label, search: normalize(`${ja} ${en}`)};
+      const ja = (state.jpMoveById && state.jpMoveById.get(id)) || state.jpMoveByEn.get(en) || "";
+      const label = ja || (m.num ? `未登録技 #${m.num}` : "未登録技");
+      const opt = {id, en, label, search: normalize(`${ja} ${en} ${id}`)};
       state.moveOptionsAll.push(opt);
       state.moveOptionById.set(id, opt);
     }
@@ -607,8 +594,7 @@
       if (!e) continue;
       if (sel !== "#toggleHideRight") e.disabled = false;
     }
-    $("#btnLoad").disabled = false;
-    const _bl = $("#btnLoad"); if (_bl) _bl.textContent = "再読み込み";
+    $("#btnLoad").disabled = true;
 
     setStatus("読み込み完了。チームを組んでください。", "ok");
     renderAll();
@@ -1673,15 +1659,7 @@
   function autoFillTeam(side){
     const pool = getAutoSpeciesPool();
     if (pool.length < 6) {
-      {
-      if (!state.dexLoaded) {
-        setStatus("準備中です。図鑑データの読み込みが終わるまでお待ちください。", "err");
-      } else if (state.ui.regEnabled && !state.reg.loaded) {
-        setStatus("レギュデータの読み込みに失敗している可能性があります。右上の「再読み込み」をお試しください。", "err");
-      } else {
-        setStatus("おまかせ候補が足りません（条件が厳しすぎる可能性があります）。", "err");
-      }
-    }
+      setStatus("おまかせ候補が足りません（図鑑読み込み後に再度お試しください）。", "err");
       return;
     }
     const chosen = sampleUnique(pool, 6);
@@ -2087,21 +2065,6 @@
   const aiBtn = $("#btnAiPage");
   if (aiBtn) aiBtn.addEventListener("click", saveAiStateAndGo);
 
-  // initial status / auto-load
-  setStatus("図鑑データを自動で読み込みます…（初回は少し重い）");
-  (async () => {
-    // ページを開いたら即ロード（ボタン押下は不要）
-    try{
-      const btn = $("#btnLoad");
-      if (btn) { btn.textContent = "再読み込み"; btn.disabled = true; }
-      await loadDex();
-      setStatus("準備完了。ポケモンを選べます。", "ok");
-      if (btn) { btn.disabled = false; }
-    }catch(err){
-      console.error(err);
-      const btn = $("#btnLoad");
-      if (btn) { btn.textContent = "図鑑データ読み込み"; btn.disabled = false; }
-      setStatus(`図鑑データの自動読み込みに失敗: ${err.message}`, "err");
-    }
-  })();
+  // initial status
+  setStatus("まず「図鑑データ読み込み」を押してください。※新しめの技/特性は、表示時にネット経由で日本語名を自動取得して端末にキャッシュします。");
 })();
