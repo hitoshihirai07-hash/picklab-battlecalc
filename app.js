@@ -403,10 +403,9 @@
   }
 
   async function fetchPokeapi(kind, slug){
-    const url = `https://pokeapi.co/api/v2/${kind}/${slug}/`;
-    const res = await fetch(url, {cache:"force-cache"});
-    if (!res.ok) throw new Error(`PokeAPI ${kind} ${res.status}`);
-    return res.json();
+    // PokeAPIは使わない方針（完全JSON運用）。
+    // 旧実装との互換のために関数は残すが、常に失敗扱いにする。
+    throw new Error("PokeAPI disabled");
   }
 
   function pickJaName(names){
@@ -420,52 +419,18 @@
   }
 
   async function ensureMoveJa(enName){
+    // 既存の en→ja マップ（/dex/jp/move_en_ja.json と端末キャッシュ）だけを参照。
+    // ネットワーク取得は行わない。
     if (!enName) return "";
     if (state.jpMoveByEn.has(enName)) return state.jpMoveByEn.get(enName) || "";
-    if (state.pendingJa.move.has(enName)) return state.pendingJa.move.get(enName);
-    const p = (async () => {
-      try{
-        const data = await fetchPokeapi("move", pokeSlug(enName));
-        const ja = pickJaName(data?.names) || "";
-        if (ja) {
-          state.jpMoveByEn.set(enName, ja);
-          const mid = state.moveIdByName.get(enName);
-          const opt = mid ? state.moveOptionById.get(mid) : null;
-          if (opt) { opt.label = ja || enName; opt.search = normalize(`${ja} ${enName}`); }
-          saveI18nCache();
-        }
-        return ja;
-      }catch{
-        return "";
-      } finally {
-        state.pendingJa.move.delete(enName);
-      }
-    })();
-    state.pendingJa.move.set(enName, p);
-    return p;
+    return "";
   }
 
   async function ensureAbilityJa(enName){
+    // 特性の日本語名は端末キャッシュがある場合のみ表示（ネット取得しない）。
     if (!enName) return "";
-    if (state.jpAbilityByEn.has(enName)) return state.jpAbilityByEn.get(enName) || "";
-    if (state.pendingJa.ability.has(enName)) return state.pendingJa.ability.get(enName);
-    const p = (async () => {
-      try{
-        const data = await fetchPokeapi("ability", pokeSlug(enName));
-        const ja = pickJaName(data?.names) || "";
-        if (ja) {
-          state.jpAbilityByEn.set(enName, ja);
-          saveI18nCache();
-        }
-        return ja;
-      }catch{
-        return "";
-      } finally {
-        state.pendingJa.ability.delete(enName);
-      }
-    })();
-    state.pendingJa.ability.set(enName, p);
-    return p;
+    if (state.jpAbilityByEn && state.jpAbilityByEn.has(enName)) return state.jpAbilityByEn.get(enName) || "";
+    return "";
   }
 // --- Dex loading ---
   async function fetchJson(relPath){
@@ -614,7 +579,8 @@
       if (!e) continue;
       if (sel !== "#toggleHideRight") e.disabled = false;
     }
-    $("#btnLoad").disabled = true;
+    $("#btnLoad").disabled = false;
+    const _bl = $("#btnLoad"); if (_bl) _bl.textContent = "再読み込み";
 
     setStatus("読み込み完了。チームを組んでください。", "ok");
     renderAll();
@@ -1679,7 +1645,15 @@
   function autoFillTeam(side){
     const pool = getAutoSpeciesPool();
     if (pool.length < 6) {
-      setStatus("おまかせ候補が足りません（図鑑読み込み後に再度お試しください）。", "err");
+      {
+      if (!state.dexLoaded) {
+        setStatus("準備中です。図鑑データの読み込みが終わるまでお待ちください。", "err");
+      } else if (state.ui.regEnabled && !state.reg.loaded) {
+        setStatus("レギュデータの読み込みに失敗している可能性があります。右上の「再読み込み」をお試しください。", "err");
+      } else {
+        setStatus("おまかせ候補が足りません（条件が厳しすぎる可能性があります）。", "err");
+      }
+    }
       return;
     }
     const chosen = sampleUnique(pool, 6);
@@ -2085,6 +2059,21 @@
   const aiBtn = $("#btnAiPage");
   if (aiBtn) aiBtn.addEventListener("click", saveAiStateAndGo);
 
-  // initial status
-  setStatus("まず「図鑑データ読み込み」を押してください。※新しめの技/特性は、表示時にネット経由で日本語名を自動取得して端末にキャッシュします。");
+  // initial status / auto-load
+  setStatus("図鑑データを自動で読み込みます…（初回は少し重い）");
+  (async () => {
+    // ページを開いたら即ロード（ボタン押下は不要）
+    try{
+      const btn = $("#btnLoad");
+      if (btn) { btn.textContent = "再読み込み"; btn.disabled = true; }
+      await loadDex();
+      setStatus("準備完了。ポケモンを選べます。", "ok");
+      if (btn) { btn.disabled = false; }
+    }catch(err){
+      console.error(err);
+      const btn = $("#btnLoad");
+      if (btn) { btn.textContent = "図鑑データ読み込み"; btn.disabled = false; }
+      setStatus(`図鑑データの自動読み込みに失敗: ${err.message}`, "err");
+    }
+  })();
 })();
