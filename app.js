@@ -95,16 +95,29 @@
   function resetDismissRegistry(){ dismissRegistry = []; }
   function registerDismiss(wrap, list){ dismissRegistry.push({wrap, list}); }
 
+  // Track user-driven scrolling so we don't "snap back" during async re-renders.
+  // (JP name resolution etc. can trigger a render later; forcing scroll restore breaks UX.)
+  let _lastUserScrollAt = 0;
+  window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, {passive:true});
+
   let _rafRender = null;
   function scheduleRenderAll(){
     if (_rafRender) return;
     const y = window.scrollY;
+    const scheduledAt = Date.now();
     _rafRender = requestAnimationFrame(() => {
       _rafRender = null;
       renderAll();
-      // Mobile browsers sometimes jump scroll on heavy re-render; restore.
+      // Mobile browsers sometimes jump scroll on heavy re-render.
+      // Restore ONLY when the user hasn't scrolled since scheduling.
       requestAnimationFrame(() => {
-        try { window.scrollTo(0, y); } catch(_) {}
+        try {
+          // If user scrolled recently (or after scheduling), do NOT force restore.
+          if (_lastUserScrollAt && _lastUserScrollAt > scheduledAt) return;
+          if (Date.now() - _lastUserScrollAt < 250) return;
+          const delta = Math.abs(window.scrollY - y);
+          if (delta >= 120) window.scrollTo(0, y);
+        } catch(_) {}
       });
     });
   }
