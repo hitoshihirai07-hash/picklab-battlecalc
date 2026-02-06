@@ -436,14 +436,29 @@
     // ネットワーク取得は行わない。
     if (!enName) return "";
     if (state.jpMoveByEn.has(enName)) return state.jpMoveByEn.get(enName) || "";
-    return "";
+
+    // IMPORTANT:
+    // 旧実装では「未登録 → fetch → 翻訳Map更新 → 再描画」という流れでした。
+    // いまはネット取得をしない方針なので、未登録のままだと
+    // 「未登録 → ensureMoveJa() → then(scheduleRenderAll)」が永遠に繰り返され、
+    // 画面が常時再描画されてクリック/選択が効かなくなります。
+    // そのため、未登録のものは “英語名をそのまま” 登録して再描画ループを止めます。
+    state.jpMoveByEn.set(enName, enName);
+    saveI18nCache();
+    return enName;
   }
 
   async function ensureAbilityJa(enName){
     // 特性の日本語名は端末キャッシュがある場合のみ表示（ネット取得しない）。
     if (!enName) return "";
     if (state.jpAbilityByEn && state.jpAbilityByEn.has(enName)) return state.jpAbilityByEn.get(enName) || "";
-    return "";
+
+    // move と同様に、未登録のままにすると再描画ループの原因になります。
+    // 日本語が無い場合は英語名を登録してフォールバック表示にします。
+    if (!state.jpAbilityByEn) state.jpAbilityByEn = new Map();
+    state.jpAbilityByEn.set(enName, enName);
+    saveI18nCache();
+    return enName;
   }
 // --- Dex loading ---
   async function fetchJson(relPath){
