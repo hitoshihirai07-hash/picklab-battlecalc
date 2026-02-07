@@ -173,7 +173,7 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
   function fmtAbility(en){
     if (!en) return "";
     const ja = state.jpAbilityByEn.get(en);
-    return ja ? ja : en;
+    return ja ? ja : "未登録特性";
   }
 
   function fmtSpecies(id){
@@ -432,26 +432,24 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
     if (!enName) return "";
     if (state.jpMoveByEn && state.jpMoveByEn.has(enName)) return state.jpMoveByEn.get(enName) || "";
     const mid = state.moveIdByName.get(enName);
-    if (mid && state.jpMoveById && state.jpMoveById.has(mid)) return state.jpMoveById.get(mid) || "";
+    if (mid && state.jpMoveById && state.jpMoveById.has(mid)) {
+      const ja = state.jpMoveById.get(mid) || "";
+      state.jpMoveByEn.set(enName, ja);
+      return ja;
+    }
+    // mark as checked to avoid render loops
+    state.jpMoveByEn.set(enName, "");
     return "";
   }
 
   async function ensureAbilityJa(enName){
     if (!enName) return "";
     if (state.jpAbilityByEn && state.jpAbilityByEn.has(enName)) return state.jpAbilityByEn.get(enName) || "";
+    // mark as checked to avoid render loops (no external API)
+    state.jpAbilityByEn.set(enName, "");
     return "";
   }
 
-        return ja;
-      }catch{
-        return "";
-      } finally {
-        state.pendingJa.ability.delete(enName);
-      }
-    })();
-    state.pendingJa.ability.set(enName, p);
-    return p;
-  }
 // --- Dex loading ---
   async function fetchJson(relPath){
     const url = new URL(relPath, location.href).toString();
@@ -487,14 +485,15 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
       throw new Error("file:// 直開きだとブラウザ制限でJSONを読めません。Cloudflare Pages等に置いたURLで開いてください。");
     }
     setStatus("図鑑データを読み込み中…（初回は少し重い）");
-    const [pokedex, moves, setsWrap, jpPokemonList, jpItemList, moveIdJaBase, moveIdJaCustom] = await Promise.all([
+    const [pokedex, moves, setsWrap, jpPokemonList, jpItemList, moveIdJaBase, moveIdJaCustom, abilityJaCustom] = await Promise.all([
       fetchJson("/dex/ps/pokedex.json"),
       fetchJson("/dex/ps/moves.json"),
       fetchJson("/dex/ps/sets/gen9ou.json"),
       fetchJson("/dex/jp/POKEMON_ALL.json"),
       fetchJson("/dex/jp/ITEM_ALL.json"),
       fetchJson("/dex/jp/moveid_ja.json"),
-      fetchJson("/dex/jp/move_custom_ja.json?v=20260206_ja1"),
+      fetchJson("/dex/jp/move_custom_ja.json?v=20260207_ja2"),
+      fetchJson("/dex/jp/ability_custom_ja.json?v=20260207_ab1"),
     ]);
 
     state.pokedex = pokedex;
@@ -510,6 +509,9 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
       const en = state.moves?.[id]?.name;
       if (en) state.jpMoveByEn.set(en, ja);
     }
+
+    // abilities i18n (Japanese) - local file only
+    state.jpAbilityByEn = new Map(Object.entries(abilityJaCustom || {}));
 
     // move maps
     state.moveIdByName = new Map();
@@ -1904,6 +1906,16 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
       setStatus(`図鑑データの読み込みに失敗: ${e.message}`, "err");
     }
   });
+
+  // Auto-load dex on open (no need to click)
+  (async () => {
+    try{
+      await loadDex();
+    }catch(e){
+      console.error(e);
+      setStatus(`図鑑データの読み込みに失敗: ${e.message}`, "err");
+    }
+  })();
 
   const _btnExport = $("#btnExport"); if (_btnExport) _btnExport.addEventListener("click", exportJson);
 
