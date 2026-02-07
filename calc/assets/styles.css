@@ -127,7 +127,7 @@ button:hover{border-color:var(--accent2)}
 .team-def-row{display:grid;grid-template-columns:160px 92px 100px;gap:6px;margin-bottom:6px}
 
 /* widen move fields */
-.team-row .team-moves{display:grid;grid-template-columns: repeat(4, minmax(180px,1fr)); gap:10px;}
+.team-row .team-moves{display:grid;grid-template-columns: repeat(4, minmax(150px,1fr)); gap:10px;}
 .team-row .combo-wrap{ display:flex; align-items:center; gap:6px; width:100%; }
 .team-row .combo-wrap input{ flex:1; min-width:0; }
 .team-row .combo-btn{ min-width:30px; height:36px; }
@@ -135,16 +135,18 @@ button:hover{border-color:var(--accent2)}
 /* responsive wrap */
 @media (max-width: 1700px){
   .team-row{ grid-template-columns: 120px 68px 78px 1fr; }
-  .team-row .team-moves{ grid-template-columns: repeat(2, minmax(220px,1fr)); }
+  .team-row .team-moves{ grid-template-columns: repeat(2, minmax(180px,1fr)); }
 }
 @media (max-width: 1450px){
-  .team-row .team-moves{ grid-template-columns: repeat(2, minmax(200px,1fr)); }
+  .team-row .team-moves{ grid-template-columns: repeat(2, minmax(160px,1fr)); }
 }
 
 /* defender placement rules for #view-team */
-#view-team .row{display:flex; flex-direction:row; gap:16px; align-items:flex-start; flex-wrap:nowrap;}
-#view-team .row .card{flex:1 1 50%; max-width:50%;}
-@media (max-width: 1450px){
-  #view-team .row{flex-wrap:wrap;}
-  #view-team .row .card{flex:1 1 100%; max-width:100%;}
-}
+/* 6v6 view: prevent the attacker/defender cards from overlapping.
+   - Allow wrapping
+   - Ensure flex children can shrink (min-width:0)
+   - Let each card scroll horizontally if its content is wider
+*/
+#view-team .row{display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap;}
+#view-team .card{min-width:0; overflow:auto;}
+#view-team .row .card{flex:1 1 520px; max-width:100%;}

@@ -9,6 +9,41 @@
 
   function setMsg(t){ if(msg) msg.textContent = t || ""; }
 
+  // ===== helpers for 6v6 presets (6v6 tab uses simplified selectors) =====
+  const ATK_PLUS_NATURES = new Set(['Lonely','Brave','Adamant','Naughty']);
+  const SPA_PLUS_NATURES = new Set(['Modest','Mild','Quiet','Rash']);
+  const DEF_PLUS_NATURES = new Set(['Bold','Relaxed','Impish','Lax']);
+  const SPD_PLUS_NATURES = new Set(['Calm','Gentle','Sassy','Careful']);
+
+  function atkNatPreset(natureEn){
+    if(ATK_PLUS_NATURES.has(natureEn)) return 'atk';
+    if(SPA_PLUS_NATURES.has(natureEn)) return 'spa';
+    return 'none';
+  }
+  function defNatPreset(natureEn){
+    if(DEF_PLUS_NATURES.has(natureEn)) return 'b';
+    if(SPD_PLUS_NATURES.has(natureEn)) return 'd';
+    return 'none';
+  }
+  function atkEvPreset(evs){
+    const a = (evs && evs.atk) || 0;
+    const c = (evs && evs.spa) || 0;
+    if(a >= 252 && a >= c) return 'A252';
+    if(c >= 252) return 'C252';
+    return '0';
+  }
+  function defEvPreset(evs){
+    const h = (evs && evs.hp) || 0;
+    const b = (evs && evs.def) || 0;
+    const d = (evs && evs.spd) || 0;
+    if(h >= 252 && b >= 252) return 'HB252';
+    if(h >= 252 && d >= 252) return 'HD252';
+    if(h >= 252) return 'H252';
+    if(b >= 252) return 'B252';
+    if(d >= 252) return 'D252';
+    return '0';
+  }
+
   function safeJsonParse(s){
     try{ return JSON.parse(s); }catch(_){ return null; }
   }
@@ -101,6 +136,9 @@
       if(s.startsWith(cand)) score+=10;
       if(score>bestScore){ bestScore=score; best=cand; }
     }
+    // If we couldn't find any meaningful match, never "auto-correct" to a random first entry.
+    // (e.g. ゲッコウガ -> フシギダネ) is worse than keeping the original.
+    if(bestScore <= 0) return name;
     return best || name;
   }
 
@@ -111,7 +149,8 @@
       loadJson("../dex/jp/move_custom_ja.json"),
       loadJson("../dex/jp/ability_custom_ja.json"),
       loadJson("../dex/ps/moves.json"),
-      loadJson("pokemon_master.currentOnly.json"),
+      // Use the actual list used by the calculator (not current-only), so name matching is stable.
+      loadJson("pokemon_master.json"),
     ]);
 
     const bdcNames = new Set((bdcMaster||[]).map(x=>x && x["名前"]).filter(Boolean));
@@ -166,19 +205,32 @@
       if(!moveId) return "";
       const m = psMoves && psMoves[moveId];
       const enName = m ? m.name : "";
-      // Prefer the user-maintained custom dictionary first.
-      if(enName && moveCustomJa && moveCustomJa[enName]) return moveCustomJa[enName];
-      if(enName && moveEnJa && moveEnJa[enName]) return moveEnJa[enName];
-      // No English fallback: return a JP placeholder so the UI never shows raw English.
-      return enName ? `未登録技(${enName})` : `未登録技(${moveId})`;
+      // 1) moveId keyed override (most robust)
+      if(moveCustomJa && moveCustomJa[moveId]) return moveCustomJa[moveId];
+
+      // 2) English-name keyed override
+      if(enName){
+        if(moveCustomJa && moveCustomJa[enName]) return moveCustomJa[enName];
+        const norm = normalizeId(enName);
+        if(moveCustomJa && moveCustomJa[norm]) return moveCustomJa[norm];
+        if(moveEnJa && moveEnJa[enName]) return moveEnJa[enName];
+      }
+
+      // 3) tiny built-in patch for remaining gaps reported
+      if(enName === 'Aqua Break' || moveId === 'aquabreak') return 'アクアブレイク';
+
+      // No raw English in UI
+      console.warn('[PickLab->Calc] 未登録技:', moveId, enName);
+      return '未登録技';
     }
 
     function abilityIdToJa(abilityId){
       if(!abilityId) return "";
-      // In Pick Lab, abilityId is usually a PS id. We keep it for potential future use.
       const key = String(abilityId);
       if(abilityCustomJa && abilityCustomJa[key]) return abilityCustomJa[key];
-      return `未登録特性(${key})`;
+      const norm = normalizeId(key);
+      if(abilityCustomJa && abilityCustomJa[norm]) return abilityCustomJa[norm];
+      return '未登録特性';
     }
 
     return { idToBdcName, moveIdToJa, abilityIdToJa };
@@ -212,7 +264,7 @@
     const left = (payload.app.teams.left || []);
     const right = (payload.app.teams.right || []);
 
-    // Build party array (6)
+    // Build party array (6) - used for Party tab and 6v6 attacker side
     const party = Array.from({length:6}, (_,i) => {
       const mon = left[i] || {};
       const name = mon.speciesId ? maps.idToBdcName(mon.speciesId) : "";
@@ -223,13 +275,20 @@
         name,
         nature: natureJa,
         ev: { h:ev.hp||0, a:ev.atk||0, b:ev.def||0, c:ev.spa||0, d:ev.spd||0, s:ev.spe||0 },
-        moves
+        moves,
+        // 6v6 presets
+        teamNat: atkNatPreset(mon.nature),
+        teamEv: atkEvPreset(mon.evs),
       };
     });
 
-    const defNames = Array.from({length:6}, (_,i) => {
+    const defTeam = Array.from({length:6}, (_,i) => {
       const mon = right[i] || {};
-      return mon.speciesId ? maps.idToBdcName(mon.speciesId) : "";
+      return {
+        name: mon.speciesId ? maps.idToBdcName(mon.speciesId) : "",
+        teamNat: defNatPreset(mon.nature),
+        teamEv: defEvPreset(mon.evs),
+      };
     });
 
     // Apply with retry because BDC UI is built progressively
@@ -258,10 +317,21 @@
       (p.moves || []).slice(0,4).forEach((mv, idx) => setVal(`p${i}_m${idx+1}`, mv));
     }
 
-    // 6v6 name grids
+    // 6v6 grids
     for(let i=1;i<=6;i++){
-      setVal(`tA_name_${i}`, party[i-1]?.name || "");
-      setVal(`tD_name_${i}`, defNames[i-1] || "");
+      const atk = party[i-1] || {};
+      const def = defTeam[i-1] || {};
+      setVal(`tA_name_${i}`, atk.name || "");
+      setVal(`tD_name_${i}`, def.name || "");
+
+      // attacker side: 4 moves + nature/ev preset
+      setVal(`tA_nat_${i}`, atk.teamNat || 'none');
+      setVal(`tA_ev_${i}`, atk.teamEv || '0');
+      (atk.moves || []).slice(0,4).forEach((mv, idx) => setVal(`tA_m${idx+1}_${i}`, mv));
+
+      // defender side: nature/ev preset only (no move fields)
+      setVal(`tD_nat_${i}`, def.teamNat || 'none');
+      setVal(`tD_ev_${i}`, def.teamEv || '0');
     }
 
     // Cleanup: keep the payload (user may want to re-apply), but show done
