@@ -573,6 +573,9 @@
     // build No. index for regulation CSV (National Dex number -> IDs)
     rebuildNumIndex();
 
+    // mark dex loaded before parsing regulation/learnsets
+    state.dexLoaded = true;
+
     // apply stored regulation CSV after dex loaded
     if (state.reg.rawCsv) parseRegulationCsv(state.reg.rawCsv);
     updateRegInfo();
@@ -583,6 +586,7 @@
     }
     try {
       await loadRegulationFromUrl(DEFAULT_REG_URL);
+      if (!state.reg.loaded) throw new Error("regulation empty");
       state.ui.regEnabled = true;
       persistSwitches();
       updateRegInfo();
