@@ -39,7 +39,6 @@
     jpPokemonById: new Map(), // showdownId -> {ja,en}
     jpItemByEn: new Map(),    // English name -> ja
     jpMoveByEn: new Map(),    // English move name -> ja
-    jpMoveById: new Map(),    // moveId -> ja
     jpAbilityByEn: new Map(), // English ability name -> ja
     pendingJa: { move:new Map(), ability:new Map() },
     moveIdByName: new Map(),  // English move name -> id
@@ -97,24 +96,15 @@
   function registerDismiss(wrap, list){ dismissRegistry.push({wrap, list}); }
 
   let _rafRender = null;
-
-let _lastUserScrollAt = 0;
-window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { passive: true });
   function scheduleRenderAll(){
     if (_rafRender) return;
     const y = window.scrollY;
     _rafRender = requestAnimationFrame(() => {
       _rafRender = null;
       renderAll();
-
-      // Avoid fighting user scroll: only restore if the browser "jumps" and the user isn't scrolling.
+      // Mobile browsers sometimes jump scroll on heavy re-render; restore.
       requestAnimationFrame(() => {
-        try {
-          const now = Date.now();
-          const jumped = Math.abs((window.scrollY || 0) - y) > 80;
-          const userScrolling = (now - (_lastUserScrollAt || 0)) < 250;
-          if (jumped && !userScrolling) window.scrollTo(0, y);
-        } catch(_) {}
+        try { window.scrollTo(0, y); } catch(_) {}
       });
     });
   }
@@ -164,10 +154,8 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
   function fmtMove(id){
     if (!id) return "";
     const en = state.moveNameById.get(id) || id;
-    const ja = (state.jpMoveById && state.jpMoveById.get(id)) || state.jpMoveByEn.get(en) || "";
-    if (ja) return ja;
-    const num = state.moves?.[id]?.num;
-    return num ? `未登録技 #${num}` : "未登録技";
+    const ja = state.jpMoveByEn.get(en);
+    return ja ? ja : "未登録技";
   }
 
   function fmtAbility(en){
@@ -414,8 +402,12 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
       .replace(/^-|-$/g, "");
   }
 
-  async function fetchPokeapi(){
-    throw new Error("PokeAPI is disabled (local JSON only).");
+  async function fetchPokeapi(kind, slug){
+    const url = `https://pokeapi.co/api/v2/${kind}/${slug}/`;
+    const _cm = (/\/dex\/jp\/(move_custom_ja|ability_custom_ja)\.json$/.test(relPath)) ? "no-store" : "force-cache";
+    const res = await fetch(url, {cache:_cm});
+    if (!res.ok) throw new Error(`PokeAPI ${kind} ${res.status}`);
+    return res.json();
   }
 
   function pickJaName(names){
@@ -428,24 +420,19 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
     return "";
   }
 
+    // --- i18n (NO network: use bundled JSON/CSV only) ---
   async function ensureMoveJa(enName){
     if (!enName) return "";
-    if (state.jpMoveByEn && state.jpMoveByEn.has(enName)) return state.jpMoveByEn.get(enName) || "";
-    const mid = state.moveIdByName.get(enName);
-    if (mid && state.jpMoveById && state.jpMoveById.has(mid)) {
-      const ja = state.jpMoveById.get(mid) || "";
-      state.jpMoveByEn.set(enName, ja);
-      return ja;
-    }
-    // mark as checked to avoid render loops
+    // If already mapped, return.
+    if (state.jpMoveByEn.has(enName)) return state.jpMoveByEn.get(enName) || "";
+    // Cache empty to avoid repeated lookups; do NOT fetch from network.
     state.jpMoveByEn.set(enName, "");
     return "";
   }
 
   async function ensureAbilityJa(enName){
     if (!enName) return "";
-    if (state.jpAbilityByEn && state.jpAbilityByEn.has(enName)) return state.jpAbilityByEn.get(enName) || "";
-    // mark as checked to avoid render loops (no external API)
+    if (state.jpAbilityByEn.has(enName)) return state.jpAbilityByEn.get(enName) || "";
     state.jpAbilityByEn.set(enName, "");
     return "";
   }
@@ -453,10 +440,21 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
 // --- Dex loading ---
   async function fetchJson(relPath){
     const url = new URL(relPath, location.href).toString();
-    const res = await fetch(url, {cache:"force-cache"});
+    const _cm = (/\/dex\/jp\/(move_custom_ja|ability_custom_ja)\.json$/.test(relPath)) ? "no-store" : "force-cache";
+    const res = await fetch(url, {cache:_cm});
     if (!res.ok) throw new Error(`HTTP ${res.status} : ${relPath}`);
     return res.json();
   }
+
+  async function fetchJsonOptional(relPath, fallback={}){
+    try{
+      return await fetchJson(relPath);
+    }catch(err){
+      // Allow missing optional files (404 etc.)
+      return fallback;
+    }
+  }
+
 
   // learnsets は重いので必要になった時だけ読み込みます（初期表示を軽くするため）
   let learnsetsPromise = null;
@@ -484,34 +482,32 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
     if (location.protocol === "file:") {
       throw new Error("file:// 直開きだとブラウザ制限でJSONを読めません。Cloudflare Pages等に置いたURLで開いてください。");
     }
+    const _btnLoad = $("#btnLoad");
+    if (_btnLoad) { _btnLoad.disabled = true; _btnLoad.textContent = "読み込み中…"; }
     setStatus("図鑑データを読み込み中…（初回は少し重い）");
-    const [pokedex, moves, setsWrap, jpPokemonList, jpItemList, moveIdJaBase, moveIdJaCustom, abilityJaCustom] = await Promise.all([
+    const [pokedex, moves, setsWrap, jpPokemonList, jpItemList, moveEnJaBase, moveEnJaCustom, abilityEnJaCustom] = await Promise.all([
       fetchJson("/dex/ps/pokedex.json"),
       fetchJson("/dex/ps/moves.json"),
       fetchJson("/dex/ps/sets/gen9ou.json"),
       fetchJson("/dex/jp/POKEMON_ALL.json"),
       fetchJson("/dex/jp/ITEM_ALL.json"),
-      fetchJson("/dex/jp/moveid_ja.json"),
-      fetchJson("/dex/jp/move_custom_ja.json?v=20260207_ja2"),
-      fetchJson("/dex/jp/ability_custom_ja.json?v=20260207_ab1"),
+      fetchJson("/dex/jp/move_en_ja.json"),
+      fetchJsonOptional("/dex/jp/move_custom_ja.json", {}),
+      fetchJsonOptional("/dex/jp/ability_custom_ja.json", {}),
     ]);
 
     state.pokedex = pokedex;
     state.moves = moves;
     state.learnsets = null;
     state.sets = setsWrap && setsWrap.dex ? setsWrap.dex : (setsWrap || {});
+    state.jpMoveByEn = new Map(Object.entries(Object.assign({}, (moveEnJaBase||{}), (moveEnJaCustom||{}))));
+    state.jpAbilityByEn = new Map(Object.entries(abilityEnJaCustom || {}));
 
-    // moves i18n (Japanese) - local files only (no external API)
-    const moveIdJa = Object.assign({}, (moveIdJaBase || {}), (moveIdJaCustom || {}));
-    state.jpMoveById = new Map(Object.entries(moveIdJa));
-    state.jpMoveByEn = new Map();
-    for (const [id, ja] of state.jpMoveById.entries()) {
-      const en = state.moves?.[id]?.name;
-      if (en) state.jpMoveByEn.set(en, ja);
-    }
 
-    // abilities i18n (Japanese) - local file only
-    state.jpAbilityByEn = new Map(Object.entries(abilityJaCustom || {}));
+    // merge cached translations (browser localStorage)
+    const cache = loadI18nCache();
+    if (cache.move) for (const [en,ja] of Object.entries(cache.move)) state.jpMoveByEn.set(en, ja);
+    if (cache.ability) for (const [en,ja] of Object.entries(cache.ability)) state.jpAbilityByEn.set(en, ja);
 
     // move maps
     state.moveIdByName = new Map();
@@ -529,9 +525,9 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
     for (const [id, m] of Object.entries(moves)) {
       if (!m || !m.name) continue;
       const en = m.name;
-      const ja = (state.jpMoveById && state.jpMoveById.get(id)) || state.jpMoveByEn.get(en) || "";
-      const label = ja || (m.num ? `未登録技 #${m.num}` : "未登録技");
-      const opt = {id, en, label, search: normalize(`${ja} ${en} ${id}`)};
+      const ja = state.jpMoveByEn.get(en) || "";
+      const label = ja || "未登録技";
+      const opt = {id, en, label, search: normalize(`${ja} ${en}`)};
       state.moveOptionsAll.push(opt);
       state.moveOptionById.set(id, opt);
     }
@@ -605,7 +601,8 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
       if (!e) continue;
       if (sel !== "#toggleHideRight") e.disabled = false;
     }
-    $("#btnLoad").disabled = true;
+    const _btnLoad2 = $("#btnLoad");
+    if (_btnLoad2) { _btnLoad2.disabled = false; _btnLoad2.textContent = "再読み込み"; }
 
     setStatus("読み込み完了。チームを組んでください。", "ok");
     renderAll();
@@ -1668,9 +1665,13 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
   }
 
   function autoFillTeam(side){
+    if (!state.dexLoaded) {
+      setStatus("図鑑データ読み込み中です…（少し待ってください）", "note");
+      return;
+    }
     const pool = getAutoSpeciesPool();
     if (pool.length < 6) {
-      setStatus("おまかせ候補が足りません（図鑑読み込み後に再度お試しください）。", "err");
+      setStatus(`おまかせ候補が足りません（候補数: ${pool.length}）。レギュや除外条件で絞られすぎている可能性があります。`, "err");
       return;
     }
     const chosen = sampleUnique(pool, 6);
@@ -1907,15 +1908,20 @@ window.addEventListener("scroll", () => { _lastUserScrollAt = Date.now(); }, { p
     }
   });
 
-  // Auto-load dex on open (no need to click)
-  (async () => {
-    try{
-      await loadDex();
-    }catch(e){
-      console.error(e);
-      setStatus(`図鑑データの読み込みに失敗: ${e.message}`, "err");
-    }
-  })();
+  // Auto load dex immediately on /sim/ so users can start selecting right away
+  if (location.pathname.includes("/sim/")) {
+    (async () => {
+      if (state.dexLoaded) return;
+      try{
+        await loadDex();
+      }catch(e){
+        console.error(e);
+        const _btnLoad = $("#btnLoad");
+        if (_btnLoad) { _btnLoad.disabled = false; _btnLoad.textContent = "再読み込み"; }
+        setStatus(`図鑑データの読み込みに失敗: ${e.message}`, "err");
+      }
+    })();
+  }
 
   const _btnExport = $("#btnExport"); if (_btnExport) _btnExport.addEventListener("click", exportJson);
 

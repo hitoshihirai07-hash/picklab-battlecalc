@@ -25,7 +25,7 @@
 /dex/jp/move_custom_ja.json
   Cache-Control: no-cache
 
-/dex/jp/move_missing.csv
+/dex/jp/ability_custom_ja.json
   Cache-Control: no-cache
 
 /dex/*
@@ -41,9 +41,4 @@
   Cache-Control: public, max-age=604800
 
 /404.html
-  Cache-Control: no-cache
-
-/dex/jp/ability_custom_ja.json
-  Cache-Control: no-cache
-/dex/jp/move_custom_ja.json
   Cache-Control: no-cache
