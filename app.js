@@ -1850,6 +1850,26 @@
 
 
   // --- AI page handoff (separate page, state via localStorage) ---
+  let __navLockUntil = 0;
+  function openInNewTab(url){
+    const now = Date.now();
+    if(now < __navLockUntil) return false; // prevent double-open
+    __navLockUntil = now + 900;
+    try{
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
   function saveAiStateAndGo(){
     const payload = {
       savedAt: new Date().toISOString(),
@@ -1863,10 +1883,10 @@
     };
     // Save to storage so AI page can open in a separate tab and still receive data
     try{ localStorage.setItem(AI_STATE_KEY, JSON.stringify(payload)); }catch(_){ }
-    // Prefer opening in a new tab to keep the main page visible. Fallback to same tab if blocked.
+    // Always keep this page as-is, and open the destination in a new tab.
     const url = "/ai.html";
-    const w = window.open(url, "_blank", "noopener");
-    if (!w) location.href = url;
+    const ok = openInNewTab(url);
+    if(!ok) setStatus("新しいタブを開けませんでした（ブラウザのポップアップ設定を確認してください）。", "warn");
   }
   
 
@@ -1882,8 +1902,8 @@
     };
     try{ localStorage.setItem("PICKLAB_TO_BDC_V1", JSON.stringify(payload)); }catch(_){ }
     const url = "/calc/?from=picklab";
-    const w = window.open(url, "_blank", "noopener");
-    if (!w) location.href = url;
+    const ok = openInNewTab(url);
+    if(!ok) setStatus("新しいタブを開けませんでした（ブラウザのポップアップ設定を確認してください）。", "warn");
   }
 
   // --- Wire buttons ---

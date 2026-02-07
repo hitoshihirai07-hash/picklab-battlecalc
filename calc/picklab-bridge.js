@@ -105,9 +105,11 @@
   }
 
   async function buildMaps(){
-    const [pkAll, moveEnJa, psMoves, bdcMaster] = await Promise.all([
+    const [pkAll, moveEnJa, moveCustomJa, abilityCustomJa, psMoves, bdcMaster] = await Promise.all([
       loadJson("../dex/jp/POKEMON_ALL.json"),
       loadJson("../dex/jp/move_en_ja.json"),
+      loadJson("../dex/jp/move_custom_ja.json"),
+      loadJson("../dex/jp/ability_custom_ja.json"),
       loadJson("../dex/ps/moves.json"),
       loadJson("pokemon_master.currentOnly.json"),
     ]);
@@ -162,13 +164,24 @@
 
     function moveIdToJa(moveId){
       if(!moveId) return "";
-      const m = psMoves[moveId];
+      const m = psMoves && psMoves[moveId];
       const enName = m ? m.name : "";
+      // Prefer the user-maintained custom dictionary first.
+      if(enName && moveCustomJa && moveCustomJa[enName]) return moveCustomJa[enName];
       if(enName && moveEnJa && moveEnJa[enName]) return moveEnJa[enName];
-      return (moveEnJa && moveEnJa[enName]) ? moveEnJa[enName] : (enName || moveId);
+      // No English fallback: return a JP placeholder so the UI never shows raw English.
+      return enName ? `未登録技(${enName})` : `未登録技(${moveId})`;
     }
 
-    return { idToBdcName, moveIdToJa };
+    function abilityIdToJa(abilityId){
+      if(!abilityId) return "";
+      // In Pick Lab, abilityId is usually a PS id. We keep it for potential future use.
+      const key = String(abilityId);
+      if(abilityCustomJa && abilityCustomJa[key]) return abilityCustomJa[key];
+      return `未登録特性(${key})`;
+    }
+
+    return { idToBdcName, moveIdToJa, abilityIdToJa };
   }
 
   function setVal(id, val){
