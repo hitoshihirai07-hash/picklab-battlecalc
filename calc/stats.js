@@ -322,6 +322,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const btnSave = document.getElementById('btnSave');
   const btnLoad = document.getElementById('btnLoad');
   const btnDel  = document.getElementById('btnDelete');
+  const btnExp  = document.getElementById('btnExport');
+  const btnImp  = document.getElementById('btnImport');
   if (btnSave) btnSave.addEventListener('click', ()=>{
     const name = document.getElementById('saveName').value.trim() || '未命名';
     const data = collectState();
@@ -340,6 +342,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (!id) return;
     const arr = savesLoad().filter(x=>x.id!==id);
     savesSave(arr); savesRender();
+  });
+  if (btnExp) btnExp.addEventListener('click', ()=>{
+    const blob = new Blob([localStorage.getItem(SAVE_KEY)||'[]'], {type:'application/json'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='bdc_saves.json'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  });
+  if (btnImp) btnImp.addEventListener('click', async ()=>{
+    const input = document.getElementById('fileImport');
+    if (!input.files || !input.files[0]) return;
+    const text = await input.files[0].text();
+    let arr = []; try{ arr = JSON.parse(text)||[]; }catch(e){ alert('JSONが不正です'); return; }
+    if (!Array.isArray(arr)){ alert('配列JSONではありません'); return; }
+    const cur = savesLoad(); const map = new Map(cur.map(r=>[r.id,r]));
+    arr.forEach(r=>{ if (r && r.id && r.name && r.data){ map.set(r.id, r); } });
+    savesSave(Array.from(map.values())); savesRender();
   });
   savesRender();
 });

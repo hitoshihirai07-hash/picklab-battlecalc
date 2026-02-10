@@ -104,3 +104,29 @@ input:focus, select:focus{border-color:var(--accent2)}
   .calcStatsGrid .row{grid-template-columns:54px 110px 64px 1fr 96px 110px; padding:8px; gap:8px; min-width:680px}
   .evFlex input{width:86px}
 }
+
+
+/* --- Damage calc + result layout (avoid vertical long) --- */
+.calcLayout{
+  display:grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap:12px;
+  align-items:start;
+}
+.calcInputs .row{margin-bottom:10px}
+.calcOutputs .inner{margin:0 0 10px}
+.card.inner{background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:14px;padding:12px}
+.rolls{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-top:8px;
+}
+.accuBar{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.btn.tiny{padding:6px 10px;border-radius:10px;font-size:13px}
+.accuTotal{font-size:18px;font-weight:800;margin-top:8px}
+
+@media (max-width: 760px){
+  .calcLayout{grid-template-columns:1fr}
+  .rolls{grid-template-columns:1fr}
+}
