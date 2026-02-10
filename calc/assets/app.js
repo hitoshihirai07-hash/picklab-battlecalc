@@ -515,8 +515,14 @@ function init(){
         tabs.querySelectorAll('.subtab').forEach(b=>b.classList.toggle('active', b===btn));
         const card = tabs.closest('.card') || tabs.parentElement;
         if(!card) return;
+        // Keep 必要事項(basic) always visible; only switch optional panels
         card.querySelectorAll('.subview').forEach(v=>{
-          v.classList.toggle('active', v.getAttribute('data-subview')===key);
+          const sv = v.getAttribute('data-subview');
+          if(sv === 'basic'){
+            v.classList.add('active');
+            return;
+          }
+          v.classList.toggle('active', sv===key);
         });
       });
     });
