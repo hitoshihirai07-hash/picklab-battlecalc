@@ -1,6 +1,10 @@
-// v5: integrate with triple-checkbox-toggle-with-count.js
-// - datalist id 'pkmList' for count script
-// - expose window.loadPokemonMaster() so the toggle can reload species list
+// stats.js
+// - レギュレーション適用（候補絞り込み）に対応
+// - 生成別トグル（全て/SV/ZA）や件数バッジは廃止
+
+const REG_CSV_KEY = "PICKLAB_REG_CSV";
+const REG_ENABLED_KEY = "PICKLAB_REG_ENABLED";
+const DEFAULT_REG_URL = "/regulation.csv";
 
 const rows = [
   { key:'hp',  label:'H' },
@@ -31,6 +35,7 @@ const natureMap = {
 const state = {
   speciesMap: new Map(),
   aliasMap: new Map(),
+  regAllowedNames: null, // Set<string> | null
 };
 
 function clamp(n, lo, hi){ n = parseInt(n,10); if (isNaN(n)) n=0; return Math.max(lo, Math.min(hi, n)); }
@@ -147,22 +152,94 @@ function wire(){
   sp.addEventListener('blur',   ()=>{ const rec = resolveSpecies(sp.value); applySpecies(rec); });
 }
 
-async function loadPokemonMaster(){ // exposed for triple-checkbox script
-  // ここで pokemon_master.json を fetch（トグルが差し替える）
+function parseBool(v){
+  const s = String(v ?? "").trim().toLowerCase();
+  return (s === "true" || s === "1" || s === "yes" || s === "y" || s === "on" || s === "〇" || s === "○");
+}
+
+function splitCsvLine(line){
+  const out=[];
+  let cur="";
+  let q=false;
+  for (let i=0;i<line.length;i++){
+    const ch=line[i];
+    if (q){
+      if (ch==='"'){
+        if (line[i+1]==='"'){ cur+='"'; i++; }
+        else { q=false; }
+      }else cur+=ch;
+    }else{
+      if (ch==='"') q=true;
+      else if (ch===','){ out.push(cur); cur=""; }
+      else cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+async function loadRegAllowedNames(){
+  // 既に読み込み済みなら返す
+  if (state.regAllowedNames && state.regAllowedNames.size) return state.regAllowedNames;
+
+  let csv = "";
+  try{ csv = localStorage.getItem(REG_CSV_KEY) || ""; }catch{}
+  if (!csv){
+    try{
+      const res = await fetch(DEFAULT_REG_URL, { cache: 'no-store' });
+      if (res.ok) csv = await res.text();
+    }catch{}
+  }
+  if (!csv) return null;
+
+  const lines = csv.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l=>l.trim().length);
+  if (!lines.length) return null;
+  const header = splitCsvLine(lines[0]).map(s=>String(s||'').trim());
+  const idxName = header.findIndex(h => h === '名前' || h.toLowerCase() === 'name' || h.toLowerCase() === 'name_ja');
+  const idxAllow = header.findIndex(h => h.toLowerCase() === 'allow' || h === '許可' || h === '可');
+  if (idxName < 0 || idxAllow < 0) return null;
+
+  const set = new Set();
+  for (let i=1;i<lines.length;i++){
+    const cols = splitCsvLine(lines[i]);
+    const name = (cols[idxName] || '').trim();
+    const allow = cols[idxAllow];
+    if (!name) continue;
+    if (!parseBool(allow)) continue;
+    set.add(name);
+  }
+  state.regAllowedNames = set;
+  return set;
+}
+
+async function loadPokemonMaster(){
   const res = await fetch('./pokemon_master.json', { cache:'no-store' });
   const list = await res.json();
-  state.speciesMap.clear(); state.aliasMap.clear();
+
+  let allowed = null;
+  const regOn = (()=>{
+    const cb = document.getElementById('regApply');
+    if (cb) return !!cb.checked;
+    try{ return (localStorage.getItem(REG_ENABLED_KEY) === 'true'); }catch{ return false; }
+  })();
+  if (regOn){
+    allowed = await loadRegAllowedNames();
+  }
+
+  state.speciesMap.clear();
+  state.aliasMap.clear();
   const dl = document.getElementById('pkmList');
   dl.innerHTML = '';
   (Array.isArray(list)? list : []).forEach(obj=>{
     if (!obj || !obj.名前) return;
+    if (allowed && !allowed.has(obj.名前)) return;
     state.speciesMap.set(obj.名前, obj);
     state.aliasMap.set(norm(obj.名前), obj.名前);
-    const opt = document.createElement('option'); opt.value = obj.名前; dl.appendChild(opt);
+    const opt = document.createElement('option');
+    opt.value = obj.名前;
+    dl.appendChild(opt);
   });
 }
-
-window.loadPokemonMaster = loadPokemonMaster;
 
 function stripBOM(s){ return s && s.charCodeAt(0)===0xFEFF ? s.slice(1) : s; }
 function guessDelimiter(firstLine){
@@ -230,7 +307,24 @@ async function loadMoves(){
 async function init(){
   buildTable();
   wire();
-  await loadPokemonMaster(); // 初期読込。トグルスクリプトが後から fetch を差し替えたら、向こうから再実行される。
+  // レギュ適用（候補絞り込み）
+  const regCb = document.getElementById('regApply');
+  if (regCb){
+    try{ regCb.checked = (localStorage.getItem(REG_ENABLED_KEY) === 'true'); }catch{ regCb.checked = false; }
+    regCb.addEventListener('change', async ()=>{
+      try{ localStorage.setItem(REG_ENABLED_KEY, String(!!regCb.checked)); }catch{}
+      // 候補を作り直す
+      await loadPokemonMaster();
+      // 現在入力が候補外ならクリア（迷子防止）
+      const sp = document.getElementById('speciesInput');
+      if (sp && sp.value){
+        const rec = resolveSpecies(sp.value);
+        if (!rec){ sp.value=''; applySpecies(null); }
+      }
+    });
+  }
+
+  await loadPokemonMaster();
   loadMoves();
   calcAll();
 }

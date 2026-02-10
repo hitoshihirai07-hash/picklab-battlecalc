@@ -42,7 +42,9 @@ input:focus, select:focus{border-color:var(--accent2)}
 .typeRow{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 .type{min-width:72px;text-align:center;padding:6px 10px;border-radius:999px;background:#fff;color:var(--text);border:1px solid var(--line)}
 
-.evRemainWrap{display:flex;align-items:flex-end;justify-content:flex-end}
+.evRemainWrap{display:flex;align-items:flex-end;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.regToggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#2563eb;user-select:none;cursor:pointer}
+.regToggle input{accent-color:#2563eb}
 .quickRow{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 8px}
 .quickRow .group{display:flex;align-items:center;gap:8px}
 .quickRow .caption{color:var(--muted);font-size:13px}

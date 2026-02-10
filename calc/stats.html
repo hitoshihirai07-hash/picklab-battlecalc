@@ -217,6 +217,10 @@
         </div>
         <div class="evRemainWrap">
           <span id="evRemain" class="muted"></span>
+          <label class="regToggle" title="現在選択中のレギュレーションで候補を絞ります">
+            <input id="regApply" type="checkbox">
+            レギュレーション適用
+          </label>
         </div>
       </div>
 
@@ -302,7 +306,6 @@
 
   <!-- 先に stats.js で window.loadPokemonMaster を定義 -->
   <script type="module" src="stats.js"></script>
-  <!-- ▼ ご指定のトグルスクリプトを同階層から読み込む（これが必須） -->
-  <script src="triple-checkbox-toggle-with-count.js"></script>
+  <!-- 生成別トグル（全て/SV/ZA）は廃止。レギュレーション適用は stats.js 内で制御 -->
 </body>
 </html>
