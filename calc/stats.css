@@ -23,7 +23,13 @@ body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-ap
 .wrap{max-width:980px;margin:18px auto;padding:0 16px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 14px rgba(0,0,0,.04);padding:14px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.grid3{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:end}
+/* 3カラム入力（縦長化を防いで均等配置） */
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:start}
+
+/* ラジオのまとまり（分類/レベルなど） */
+.seg{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.segItem{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.segItem input{margin:0}
 .row{margin-bottom:10px}
 label{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--muted)}
 input,select,button{font:inherit}
