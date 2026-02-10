@@ -1,13 +1,14 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="ja">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Pick Lab 対戦・ダメージ計算</title>
-  <link rel="manifest" href="assets/manifest.webmanifest">
-  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css"/>
-  <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>Pick Lab 対戦・ダメージ計算</title>
+<link href="assets/manifest.webmanifest" rel="manifest"/>
+<link href="assets/icon.svg" rel="icon" type="image/svg+xml"/>
+<link href="style.css" rel="stylesheet">
+<style>
     .hero{display:grid;gap:14px}
     .heroBtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
     a.btnLink{display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
@@ -15,128 +16,115 @@
     a.btnLink.secondary{background:#fff}
     .steps{margin:0;padding-left:18px;line-height:1.8}
   </style>
-</head>
+</link></head>
 <body>
 <header>
-  <h1>Pick Lab 対戦・ダメージ計算</h1>
-  <div class="sub">選出シミュレーターとダメージ計算を、同じチーム状態で行き来できます。</div>
-  <div class="toolbar">
-    <a class="btn btnLink secondary" href="sim/">シミュレーターへ</a>
-    <a class="btn btnLink primary" href="calc/">ダメージ計算へ</a>
-  </div>
+<h1>Pick Lab 対戦・ダメージ計算</h1>
+<div class="sub">選出シミュレーターとダメージ計算を、同じチーム状態で行き来できます。</div>
+<div class="toolbar">
+<a class="btn btnLink secondary" href="sim/">シミュレーターへ</a>
+<a class="btn btnLink primary" href="calc/">ダメージ計算へ</a>
+<a class="btn btnLink secondary" href="calc/stats">ステータスへ</a></div>
 </header>
-
 <main>
-  <div class="hero">
-    <section class="card">
-      <div class="panelTitle">
-        <h2>このサイトについて</h2>
-        <div class="small">Pick Lab × BattleCalc 統合版</div>
-      </div>
-      <div class="note">
+<div class="hero">
+<section class="card">
+<div class="panelTitle">
+<h2>このサイトについて</h2>
+<div class="small">Pick Lab × BattleCalc 統合版</div>
+</div>
+<div class="note">
         対戦の「選出」→ 気になる対面の「ダメージ計算」までを、同じチーム情報のままスムーズに回すためのツールです。<br/>
         ブラウザ内（ローカル）に保存され、外部に送信しません。
       </div>
-      <div class="hr"></div>
-      <ul class="steps">
-        <li><b>シミュレーター</b>：6匹を作って、3匹選出のざっくり比較ができます。</li>
-        <li><b>ダメージ計算</b>：1対1／6対6で、技・努力値込みのダメージ計算ができます。</li>
-        <li><b>連携</b>：シミュ側の「チーム→ダメ計」で、作ったチームをそのまま計算へ反映できます。</li>
-      </ul>
-    </section>
-    <section class="card">
-      <details class="guide">
-        <summary>
-          <div class="panelTitle" style="margin:0">
-            <h2>はじめての方へ（Pick Lab の使い方）</h2>
-            <div class="small">最初にここだけ見ればOK</div>
-          </div>
-        </summary>
-
-        <div class="note">
+<div class="hr"></div>
+<ul class="steps">
+<li><b>シミュレーター</b>：6匹を作って、3匹選出のざっくり比較ができます。</li>
+<li><b>ダメージ計算</b>：1対1／6対6で、技・努力値込みのダメージ計算ができます。</li>
+<li><b>連携</b>：シミュ側の「チーム→ダメ計」で、作ったチームをそのまま計算へ反映できます。</li>
+</ul>
+</section>
+<section class="card">
+<details class="guide">
+<summary>
+<div class="panelTitle" style="margin:0">
+<h2>はじめての方へ（Pick Lab の使い方）</h2>
+<div class="small">最初にここだけ見ればOK</div>
+</div>
+</summary>
+<div class="note">
           このサイトは、<b>対戦シミュレーション</b>と<b>ダメージ計算</b>を行き来しながら使えるツールです。<br/>
           対戦前の確認だけでなく、対戦中に「これ耐える？」「次の1手で落とせる？」といった<b>その場の確認</b>にも使えます。
         </div>
-
-        <div class="hr"></div>
-
-        <h3 class="h3">ダメージ計算の使い方（基本）</h3>
-        <ol class="steps">
-          <li>攻撃側・防御側のポケモンを選ぶ</li>
-          <li>技を4つ入力する（4つすべての結果が同時に表示されます）</li>
-          <li>結果から「一番通る技」「確定数」「乱数になるか」を確認する</li>
-          <li>必要に応じて「加算」を使い、通常技＋先制技／同じ技を2回などを合算して確認する</li>
-        </ol>
-        <div class="small" style="margin-top:6px">
+<div class="hr"></div>
+<h3 class="h3">ダメージ計算の使い方（基本）</h3>
+<ol class="steps">
+<li>攻撃側・防御側のポケモンを選ぶ</li>
+<li>技を4つ入力する（4つすべての結果が同時に表示されます）</li>
+<li>結果から「一番通る技」「確定数」「乱数になるか」を確認する</li>
+<li>必要に応じて「加算」を使い、通常技＋先制技／同じ技を2回などを合算して確認する</li>
+</ol>
+<div class="small" style="margin-top:6px">
           ※入力を変更すると、結果もすぐに更新されます。<br/>
           ※計算ボタンを押す必要はありません。<br/>
           ※<b>乱数</b>：同じ条件でもダメージが範囲で変動します（min〜maxの幅）。
         </div>
-
-        <div class="hr"></div>
-
-        <h3 class="h3">シミュレーションとの使い分け</h3>
-        <ul class="steps">
-          <li><b>シミュレーション</b>：相手を見て、どのポケモンを出すか考える</li>
-          <li><b>ダメージ計算</b>：具体的な数値で「耐える／落とせる」を確認する</li>
-        </ul>
-        <div class="small" style="margin-top:6px">
+<div class="hr"></div>
+<h3 class="h3">シミュレーションとの使い分け</h3>
+<ul class="steps">
+<li><b>シミュレーション</b>：相手を見て、どのポケモンを出すか考える</li>
+<li><b>ダメージ計算</b>：具体的な数値で「耐える／落とせる」を確認する</li>
+</ul>
+<div class="small" style="margin-top:6px">
           シミュレーションで気になった場面を、そのままダメージ計算で確認できます。
         </div>
-
-        <div class="hr"></div>
-
-        <h3 class="h3">3つの数値（3値）について</h3>
-        <ol class="steps">
-          <li><b>種族値</b>：ポケモンごとに決まっている、元の能力値です。</li>
-          <li><b>努力値（EV）</b>：育成で自由に振れる数値です。努力値は0～252の範囲で決まります。さらに、努力値は1つに最大252、すべてで510となります。</li>
-          <li><b>個体値（IV）</b>：そのポケモンが生まれ持った数値です。基本は 31 を前提に考えることが多いです。</li>
-        </ol>
-      </details>
-    </section>
-
-
-    <section class="card">
-      <div class="panelTitle">
-        <h2>メモ（任意）</h2>
-        <div class="small">保存しても公開されません</div>
-      </div>
-      <div class="row">
-        <div class="field">
-          <label>チーム名</label>
-          <input id="introTeamName" type="text" placeholder="例：S1 受け寄り／雨軸 など"/>
-        </div>
-        <div class="field" style="min-width:260px;flex:2">
-          <label>メモ</label>
-          <textarea id="introMemo" placeholder="例：初手は○○想定、△△は後投げ… など"></textarea>
-        </div>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <button id="introSave" class="primary" type="button">保存</button>
-        <button id="introClear" type="button">消去</button>
-        <span id="introStatus" class="small" style="align-self:center"></span>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="panelTitle">
-        <h2>はじめかた</h2>
-        <div class="small">迷ったらこの順番</div>
-      </div>
-      <ol class="steps">
-        <li>「シミュレーターへ」→ 図鑑データ読み込み → 6匹を作る</li>
-        <li>「チーム→ダメ計」→ ダメ計側に自動反映</li>
-        <li>必要なら ローカル保存して、構築を使い回す</li>
-      </ol>
-    </section>
-  </div>
-
-  <div class="hr"></div>
-  <div class="note">
+<div class="hr"></div>
+<h3 class="h3">3つの数値（3値）について</h3>
+<ol class="steps">
+<li><b>種族値</b>：ポケモンごとに決まっている、元の能力値です。</li>
+<li><b>努力値（EV）</b>：育成で自由に振れる数値です。努力値は0～252の範囲で決まります。さらに、努力値は1つに最大252、すべてで510となります。</li>
+<li><b>個体値（IV）</b>：そのポケモンが生まれ持った数値です。基本は 31 を前提に考えることが多いです。</li>
+</ol>
+</details>
+</section>
+<section class="card">
+<div class="panelTitle">
+<h2>メモ（任意）</h2>
+<div class="small">保存しても公開されません</div>
+</div>
+<div class="row">
+<div class="field">
+<label>チーム名</label>
+<input id="introTeamName" placeholder="例：S1 受け寄り／雨軸 など" type="text"/>
+</div>
+<div class="field" style="min-width:260px;flex:2">
+<label>メモ</label>
+<textarea id="introMemo" placeholder="例：初手は○○想定、△△は後投げ… など"></textarea>
+</div>
+</div>
+<div class="row" style="margin-top:6px">
+<button class="primary" id="introSave" type="button">保存</button>
+<button id="introClear" type="button">消去</button>
+<span class="small" id="introStatus" style="align-self:center"></span>
+</div>
+</section>
+<section class="card">
+<div class="panelTitle">
+<h2>はじめかた</h2>
+<div class="small">迷ったらこの順番</div>
+</div>
+<ol class="steps">
+<li>「シミュレーターへ」→ 図鑑データ読み込み → 6匹を作る</li>
+<li>「チーム→ダメ計」→ ダメ計側に自動反映</li>
+<li>必要なら ローカル保存して、構築を使い回す</li>
+</ol>
+</section>
+</div>
+<div class="hr"></div>
+<div class="note">
     ※表示・計算結果は参考用です（環境・仕様差分で変わる場合があります）。
   </div>
 </main>
-
 <script>
   (function(){
     const K_NAME = 'plbc_intro_name';
