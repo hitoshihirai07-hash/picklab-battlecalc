@@ -86,9 +86,7 @@
 
     <section class="card calcCard">
       <h2 class="calcTitle">ダメージ計算</h2>
-      <div class="calcLayout">
-        <div class="calcInputs">
-<div class="row grid3">
+      <div class="row grid3">
         <label>分類
           <div class="seg">
             <label class="segItem"><input type="radio" name="dmgCat" id="catPhysical" value="physical" checked> 物理</label>
@@ -177,9 +175,8 @@
         <label>その他補正（乗算）<input id="otherMod" type="number" step="0.01" value="1"></label>
         <div></div>
       </div>
-        </div>
-        <div class="calcOutputs">
-<div class="card inner">
+
+      <div class="card inner">
         <h3>結果</h3>
         <div id="dmgSummary" class="mono small"></div>
         <div id="dmgRolls" class="rolls"></div>
@@ -195,8 +192,7 @@
         <div id="accuList" class="accuList mono small">（なし）</div>
         <div id="accuTotal" class="accuTotal mono">—</div>
       </div>
-        </div>
-      </div>
+
     </section>
   </div>
 
@@ -289,12 +285,7 @@
             <button id="btnLoad">読込</button>
             <button id="btnDelete">削除</button>
           </div>
-          <hr/>
-          <div class="row">
-            <button id="btnExport">JSONエクスポート</button>
-            <input id="fileImport" type="file" accept=".json,application/json" />
-            <button id="btnImport">JSONインポート</button>
-          </div>
+          <!-- JSON入出力は廃止：ローカル保存/読込のみで運用 -->
         </div>
       </section>
 

@@ -47,8 +47,7 @@
   <script src="picklab-bridge.js"></script>
 
   <h1>Pick Lab 対戦・ダメージ計算</h1>
-<a class="btn" href="stats.html" target="_blank" rel="noopener noreferrer" style="text-decoration:none;margin:0 0 0 16px;">ステータス</a>
-<script src="bdc_timer_injector.js"></script>
+  <!-- ※ステータスはトップページ側に移動（calc内リンクは削除） -->
   <div class="container">
     <div class="tabs">
       <div class="tab active" data-tab="solo">1対1</div>
@@ -56,280 +55,368 @@
       <div class="tab" data-tab="party">パーティー</div>
     </div>
 
+    <div class="toptools" style="justify-content:flex-start;">
+      <label class="checkline">
+        <input type="checkbox" id="regFilterToggle">
+        <span>レギュ適用（候補を絞る）</span>
+      </label>
+      <span class="muted" id="regFilterStatus"></span>
+    </div>
+
+
     <div class="view active" id="view-solo">
       <div class="row">
+
         <div class="card">
           <div class="badge">攻撃側</div>
-          <label>ポケモン名</label>
-          <input id="atkName" type="text" list="pkmList" placeholder="">
-          <div class="grid-2">
-            <div>
-              <label>レベル</label>
-              <input id="level" type="number" value="50" min="1" max="100">
-            </div>
-            <div>
-              <label>テラスタル</label>
-              <select id="teraType"></select>
-            </div>
-          </div>
-          <div class="grid-2">
-            <div>
-              <label>タイプ1（攻撃側）</label>
-              <select id="atkType1"></select>
-            </div>
-            <div>
-              <label>タイプ2（攻撃側）</label>
-              <select id="atkType2"></select>
-            </div>
-          </div>
-          <div class="grid-2">
-            <div>
-              <label>性格</label>
-              <select id="atkNature"></select>
-            </div>
-            <div>
-              <label>連続回数</label>
-              <select id="hitsSelect"></select>
-            </div>
-          </div>
-          <div class="grid-2">
-            <div>
-              <label>こうげきEV</label>
-              <input id="atkEV_atk" type="number" value="0" min="0" max="252">
-              <div class="inline-btns">
-                <button class="btn-green" data-fill="atkEV_atk" data-val="252">252</button>
-                <button class="btn-danger" data-fill="atkEV_atk" data-val="0">0</button>
-              </div> <span class="stat-badge" id="atkStatVal"></span>
-            </div>
-            <div>
-              <label>とくこうEV</label>
-              <input id="atkEV_spa" type="number" value="0" min="0" max="252">
-              <div class="inline-btns">
-                <button class="btn-green" data-fill="atkEV_spa" data-val="252">252</button>
-                <button class="btn-danger" data-fill="atkEV_spa" data-val="0">0</button>
-              </div> <span class="stat-badge" id="spaStatVal"></span>
-            </div>
-          </div>
-          <div class="grid-2">
-            <div>
-              <label>こうげきランク</label>
-              <select id="atkRank"></select>
-            </div>
-            <div>
-              <label>とくこうランク</label>
-              <select id="spaRank"></select>
-            </div>
-          </div>
-          
-          <div class="grid-3">
-            <div>
-              <label>持ち物（攻撃）</label>
-              <select id="atkItem"></select>
-            </div>
-            <div>
-              <label>持ち物（防御）</label>
-              <select id="defItem"></select>
-            </div>
-            <div>
-              <label>天候</label>
-              <select id="weather"></select>
-            </div>
-          </div>
-          <div class="checkbox">
-            <input id="burn" type="checkbox">
-            <label for="burn">やけど（攻）</label>
+
+          <button class="advToggle" type="button" data-scope="atk">詳細を開く</button>
+<div class="subtabs" data-scope="atk">
+            <button class="subtab active" data-subtab="basic" type="button">必要事項</button>
+            <button class="subtab" data-subtab="advanced" type="button">その他</button>
           </div>
 
-          <div class="grid-3">
-            <div>
-              <label>その他補正（選択）</label>
-              <select id="miscSelect">
-                <option value="0.50">0.50</option>
-                <option value="0.67">0.67</option>
-                <option value="0.75">0.75</option>
-                <option value="0.80">0.80</option>
-                <option value="0.90">0.90</option>
-                <option value="1.00" selected>1.00（基準）</option>
-                <option value="1.10">1.10</option>
-                <option value="1.20">1.20</option>
-                <option value="1.33">1.33</option>
-                <option value="1.50">1.50</option>
-                <option value="1.67">1.67</option>
-                <option value="2.00">2.00</option>
-              </select>
+          <div class="subview active" data-subview="basic">
+            <label>ポケモン名</label>
+            <input id="atkName" type="text" list="pkmList" placeholder="">
+
+            
+            <div class="grid-2">
+              <div>
+                <label>性格</label>
+                <select id="atkNature"></select>
+              </div>
+              <div></div>
             </div>
-            <div>
-              <label>その他補正（自由入力 0.50〜2.00）</label>
-              <input id="miscCustom" type="number" step="0.01" min="0.50" max="2.00" placeholder="例：1.25">
+<div class="grid-2">
+              <div>
+                <label>こうげきEV</label>
+                <input id="atkEV_atk" type="number" value="0" min="0" max="252">
+                <div class="inline-btns">
+                  <button class="btn-green" data-fill="atkEV_atk" data-val="252" type="button">252</button>
+                  <button class="btn-danger" data-fill="atkEV_atk" data-val="0" type="button">0</button>
+                </div>
+                <div class="smallrow" style="justify-content:space-between;align-items:center">
+                  <span class="small" style="opacity:.85">こうげきIV</span>
+                  <input id="atkIV_atk" type="number" value="31" min="0" max="31" style="width:80px">
+                </div>
+                <span class="stat-badge" id="atkStatVal"></span>
+              </div>
+              <div>
+                <label>とくこうEV</label>
+                <input id="atkEV_spa" type="number" value="0" min="0" max="252">
+                <div class="inline-btns">
+                  <button class="btn-green" data-fill="atkEV_spa" data-val="252" type="button">252</button>
+                  <button class="btn-danger" data-fill="atkEV_spa" data-val="0" type="button">0</button>
+                </div>
+                <div class="smallrow" style="justify-content:space-between;align-items:center">
+                  <span class="small" style="opacity:.85">とくこうIV</span>
+                  <input id="atkIV_spa" type="number" value="31" min="0" max="31" style="width:80px">
+                </div>
+                <span class="stat-badge" id="spaStatVal"></span>
+              </div>
             </div>
-            <div style="align-self:end">
-              <span class="badge">特性・フィールド等の総合係数</span>
+
+            <div class="hr"></div>
+
+            <div class="grid-2">
+              <div>
+                <label>技1</label>
+                <input id="move1" list="moveList" placeholder="日本語名…">
+              </div>
+              <div>
+                <label>技2</label>
+                <input id="move2" list="moveList">
+              </div>
+              <div>
+                <label>技3</label>
+                <input id="move3" list="moveList">
+              </div>
+              <div>
+                <label>技4</label>
+                <input id="move4" list="moveList">
+              </div>
             </div>
+
+            <datalist id="moveList"></datalist>
+            <datalist id="movList"></datalist>
+            <datalist id="pkmList"></datalist>
+
+            <div class="checkbox">
+              <input id="showAllMoves" type="checkbox" checked>
+              <label for="showAllMoves">4技すべて表示</label>
+            </div>
+
+            <div class="inline-btns">
+              <button id="calcBtn" class="btn-accent" type="button">再計算</button>
+              <!-- ログ保存ボタンはJSでここに追加されます -->
+            </div>
+
+            <div id="soloResult" class="result small"></div>
           </div>
 
-          <div class="hr"></div>
+          <div class="subview" data-subview="advanced">
+            <div class="grid-2">
+              <div>
+                <label>レベル</label>
+                <input id="level" type="number" value="50" min="1" max="100">
+              </div>
+              <div>
+                <label>テラスタル</label>
+                <select id="teraType"></select>
+              </div>
+            </div>
 
-          <div class="grid-2">
-            <div>
-              <label>技1</label>
-              <input id="move1" list="moveList" placeholder="日本語名…">
+            <div class="grid-2">
+              <div>
+                <label>タイプ1（攻撃側）</label>
+                <select id="atkType1"></select>
+              </div>
+              <div>
+                <label>タイプ2（攻撃側）</label>
+                <select id="atkType2"></select>
+              </div>
             </div>
-            <div>
-              <label>技2</label>
-              <input id="move2" list="moveList">
+
+            <div class="grid-2">
+              <div>
+                <label>連続回数</label>
+                <select id="hitsSelect"></select>
+              </div>
+              <div></div>
             </div>
-            <div>
-              <label>技3</label>
-              <input id="move3" list="moveList">
+
+            <div class="grid-2">
+              <div>
+                <label>こうげきランク</label>
+                <select id="atkRank"></select>
+              </div>
+              <div>
+                <label>とくこうランク</label>
+                <select id="spaRank"></select>
+              </div>
             </div>
-            <div>
-              <label>技4</label>
-              <input id="move4" list="moveList">
+
+            <div class="grid-3">
+              <div>
+                <label>持ち物（攻撃）</label>
+                <select id="atkItem"></select>
+              </div>
+              <div>
+                <label>持ち物（防御）</label>
+                <select id="defItem"></select>
+              </div>
+              <div>
+                <label>天候</label>
+                <select id="weather"></select>
+              </div>
+            </div>
+
+            <div class="checkbox">
+              <input id="burn" type="checkbox">
+              <label for="burn">やけど（攻）</label>
+            </div>
+
+            <div class="grid-3">
+              <div>
+                <label>その他補正（選択）</label>
+                <select id="miscSelect">
+                  <option value="0.50">0.50</option>
+                  <option value="0.67">0.67</option>
+                  <option value="0.75">0.75</option>
+                  <option value="0.80">0.80</option>
+                  <option value="0.90">0.90</option>
+                  <option value="1.00" selected>1.00（基準）</option>
+                  <option value="1.10">1.10</option>
+                  <option value="1.20">1.20</option>
+                  <option value="1.33">1.33</option>
+                  <option value="1.50">1.50</option>
+                  <option value="1.67">1.67</option>
+                  <option value="2.00">2.00</option>
+                </select>
+              </div>
+              <div>
+                <label>その他補正（自由入力 0.50〜2.00）</label>
+                <input id="miscCustom" type="number" step="0.01" min="0.50" max="2.00" placeholder="例：1.25">
+              </div>
+              <div style="align-self:end">
+                <span class="badge">特性・フィールド等の総合係数</span>
+              </div>
             </div>
           </div>
-          <datalist id="moveList"></datalist>
-  <datalist id="movList"></datalist>
-          <datalist id="pkmList"></datalist>
-          <div class="checkbox">
-            <input id="showAllMoves" type="checkbox" checked>
-            <label for="showAllMoves">4技すべて表示</label>
-          </div>
-          <div class="inline-btns">
-            <button id="calcBtn" class="btn-accent">計算する</button>
-          </div>
-          <div id="soloResult" class="result small"></div>
         </div>
 
         <div class="card">
           <div class="badge">防御側</div>
-          <label>ポケモン名</label>
-          <input id="defName" type="text" list="pkmList" placeholder="">
-          <div class="grid-2">
-            <div>
-              <label>レベル</label>
-              <input id="defLevel" type="number" value="50" min="1" max="100">
+
+          <button class="advToggle" type="button" data-scope="def">詳細を開く</button>
+<div class="subtabs" data-scope="def">
+            <button class="subtab active" data-subtab="basic" type="button">必要事項</button>
+            <button class="subtab" data-subtab="advanced" type="button">その他</button>
+            <button class="subtab" data-subtab="sum" type="button">加算</button>
+          </div>
+
+          <div class="subview active" data-subview="basic">
+            <label>ポケモン名</label>
+            <input id="defName" type="text" list="pkmList" placeholder="">
+
+            
+            <div class="grid-2">
+              <div>
+                <label>性格</label>
+                <select id="defNature"></select>
+              </div>
+              <div></div>
             </div>
-            <div>
-              <label>性格</label>
-              <select id="defNature"></select>
+<div class="grid-2">
+              <div>
+                <label>HP EV</label>
+                <input id="defEV_hp" type="number" value="0" min="0" max="252">
+                <div class="inline-btns">
+                  <button class="btn-green" data-fill="defEV_hp" data-val="252" type="button">252</button>
+                  <button class="btn-danger" data-fill="defEV_hp" data-val="0" type="button">0</button>
+                </div>
+                <div class="smallrow" style="justify-content:space-between;align-items:center">
+                  <span class="small" style="opacity:.85">HP IV</span>
+                  <input id="defIV_hp" type="number" value="31" min="0" max="31" style="width:80px">
+                </div>
+                <span class="stat-badge" id="hpStatVal"></span>
+              </div>
+              <div>
+                <label>ぼうぎょEV</label>
+                <input id="defEV_def" type="number" value="0" min="0" max="252">
+                <div class="inline-btns">
+                  <button class="btn-green" data-fill="defEV_def" data-val="252" type="button">252</button>
+                  <button class="btn-danger" data-fill="defEV_def" data-val="0" type="button">0</button>
+                </div>
+                <div class="smallrow" style="justify-content:space-between;align-items:center">
+                  <span class="small" style="opacity:.85">ぼうぎょIV</span>
+                  <input id="defIV_def" type="number" value="31" min="0" max="31" style="width:80px">
+                </div>
+                <span class="stat-badge" id="defStatVal"></span>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div>
+                <label>とくぼうEV</label>
+                <input id="defEV_spd" type="number" value="0" min="0" max="252">
+                <div class="inline-btns">
+                  <button class="btn-green" data-fill="defEV_spd" data-val="252" type="button">252</button>
+                  <button class="btn-danger" data-fill="defEV_spd" data-val="0" type="button">0</button>
+                </div>
+                <div class="smallrow" style="justify-content:space-between;align-items:center">
+                  <span class="small" style="opacity:.85">とくぼうIV</span>
+                  <input id="defIV_spd" type="number" value="31" min="0" max="31" style="width:80px">
+                </div>
+                <span class="stat-badge" id="spdStatVal"></span>
+              </div>
+              <div>
+                <label class="small" style="opacity:.9">（空き）</label>
+                <div class="small" style="opacity:.7">必要に応じて「その他」へ</div>
+              </div>
             </div>
           </div>
-          <div class="grid-2">
-            <div>
-              <label>タイプ1</label>
-              <select id="defType1"></select>
+
+          <div class="subview" data-subview="advanced">
+            <div class="grid-2">
+              <div>
+                <label>レベル</label>
+                <input id="defLevel" type="number" value="50" min="1" max="100">
+              </div>
+              <div></div>
             </div>
-            <div>
-              <label>タイプ2</label>
-              <select id="defType2"></select>
+
+            <div class="grid-2">
+              <div>
+                <label>タイプ1</label>
+                <select id="defType1"></select>
+              </div>
+              <div>
+                <label>タイプ2</label>
+                <select id="defType2"></select>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div>
+                <label>ぼうぎょランク</label>
+                <select id="defRank"></select>
+              </div>
+              <div>
+                <label>とくぼうランク</label>
+                <select id="spdRank"></select>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="checkbox">
+                <input id="reflect" type="checkbox">
+                <label for="reflect">リフレクター</label>
+              </div>
+              <div class="checkbox">
+                <input id="lightscreen" type="checkbox">
+                <label for="lightscreen">ひかりのかべ</label>
+              </div>
             </div>
           </div>
-          <div class="grid-2">
-            <div>
-              <label>HP EV</label>
-              <input id="defEV_hp" type="number" value="0" min="0" max="252">
-              <div class="inline-btns">
-                <button class="btn-green" data-fill="defEV_hp" data-val="252">252</button>
-                <button class="btn-danger" data-fill="defEV_hp" data-val="0">0</button>
-              </div> <span class="stat-badge" id="hpStatVal"></span>
-            </div>
-            <div>
-              <label>ぼうぎょEV</label>
-              <input id="defEV_def" type="number" value="0" min="0" max="252">
-              <div class="inline-btns">
-                <button class="btn-green" data-fill="defEV_def" data-val="252">252</button>
-                <button class="btn-danger" data-fill="defEV_def" data-val="0">0</button>
-              </div> <span class="stat-badge" id="defStatVal"></span>
-            </div>
-          </div>
-          <div class="grid-2">
-            <div>
-              <label>とくぼうEV</label>
-              <input id="defEV_spd" type="number" value="0" min="0" max="252">
-              <div class="inline-btns">
-                <button class="btn-green" data-fill="defEV_spd" data-val="252">252</button>
-                <button class="btn-danger" data-fill="defEV_spd" data-val="0">0</button>
-              </div> <span class="stat-badge" id="spdStatVal"></span>
-            </div>
-            <div>
-              <label>ぼうぎょランク</label>
-              <select id="defRank"></select>
-            </div>
-          </div>
-          <div class="grid-2">
-            <div>
-              <label>とくぼうランク</label>
-              <select id="spdRank"></select>
-            </div>
+
+          <div class="subview" data-subview="sum">
             <div class="checkbox">
-              <input id="reflect" type="checkbox">
-              <label for="reflect">リフレクター</label>
-            </div>
-          </div>
-          <div class="checkbox">
-            <input id="lightscreen" type="checkbox">
-            <label for="lightscreen">ひかりのかべ</label>
-          </div>
-          <div class="hr"></div>
-
-          <div class="checkbox">
-            <input id="forceCrit" type="checkbox">
-            <label for="forceCrit">確定急所（手動）</label>
-          </div>
-          <div class="checkbox">
-          </div>
-
-          <div class="panel" id="sumPanel">
-            <div class="smallrow" style="justify-content:space-between;align-items:center">
-              <div class="badge">加算モード（1対1）</div>
-              <button id="sumBtn">加算する</button>
-            </div>
-            <div class="grid-4" style="margin-top:10px">
-              <div>
-                <label><input type="checkbox" id="sumUse1"> 技1</label>
-                <div class="smallrow">
-                  <label style="width:60px">回数</label>
-                  <input id="sumCount1" type="number" value="1" min="1" max="20">
-                </div>
-              </div>
-              <div>
-                <label><input type="checkbox" id="sumUse2"> 技2</label>
-                <div class="smallrow">
-                  <label style="width:60px">回数</label>
-                  <input id="sumCount2" type="number" value="1" min="1" max="20">
-                </div>
-              </div>
-              <div>
-                <label><input type="checkbox" id="sumUse3"> 技3</label>
-                <div class="smallrow">
-                  <label style="width:60px">回数</label>
-                  <input id="sumCount3" type="number" value="1" min="1" max="20">
-                </div>
-              </div>
-              <div>
-                <label><input type="checkbox" id="sumUse4"> 技4</label>
-                <div class="smallrow">
-                  <label style="width:60px">回数</label>
-                  <input id="sumCount4" type="number" value="1" min="1" max="20">
-                </div>
-              </div>
+              <input id="forceCrit" type="checkbox">
+              <label for="forceCrit">確定急所（手動）</label>
             </div>
 
-            <div style="margin-top:10px">
-              <div style="margin-bottom:6px;color:#aec3d0;font-size:12px">HPバー（上：最良残り／下：最悪残り）</div>
-              <div class="hpbar"><div class="hpfill" id="hpFillBest" style="width:100%"></div></div>
-              <div class="hpbar"><div class="hpfill" id="hpFillWorst" style="width:100%"></div></div>
-              <div id="sumText" class="result" style="margin-top:8px">加算結果がここに表示されます</div>
+            <div class="panel" id="sumPanel">
+              <div class="smallrow" style="justify-content:space-between;align-items:center">
+                <div class="badge">加算モード（1対1）</div>
+                <button id="sumBtn" type="button">加算する</button>
+              </div>
+              <div class="grid-4" style="margin-top:10px">
+                <div>
+                  <label><input type="checkbox" id="sumUse1"> 技1</label>
+                  <div class="smallrow">
+                    <label style="width:60px">回数</label>
+                    <input id="sumCount1" type="number" value="1" min="1" max="20">
+                  </div>
+                </div>
+                <div>
+                  <label><input type="checkbox" id="sumUse2"> 技2</label>
+                  <div class="smallrow">
+                    <label style="width:60px">回数</label>
+                    <input id="sumCount2" type="number" value="1" min="1" max="20">
+                  </div>
+                </div>
+                <div>
+                  <label><input type="checkbox" id="sumUse3"> 技3</label>
+                  <div class="smallrow">
+                    <label style="width:60px">回数</label>
+                    <input id="sumCount3" type="number" value="1" min="1" max="20">
+                  </div>
+                </div>
+                <div>
+                  <label><input type="checkbox" id="sumUse4"> 技4</label>
+                  <div class="smallrow">
+                    <label style="width:60px">回数</label>
+                    <input id="sumCount4" type="number" value="1" min="1" max="20">
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top:10px">
+                <div style="margin-bottom:6px;color:#aec3d0;font-size:12px">HPバー（上：最良残り／下：最悪残り）</div>
+                <div class="hpbar"><div class="hpfill" id="hpFillBest" style="width:100%"></div></div>
+                <div class="hpbar"><div class="hpfill" id="hpFillWorst" style="width:100%"></div></div>
+                <div id="sumText" class="result" style="margin-top:8px">加算結果がここに表示されます</div>
+              </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>
 
-    
-    
-    
+
+
     <div class="view" id="view-team">
       <div class="badge">6対6</div>
       <div class="row">

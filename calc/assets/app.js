@@ -323,7 +323,18 @@ function readSoloInputs(){
   const defNat = document.getElementById('defNature').value || 'まじめ';
   const tera = document.getElementById('teraType').value||null;
   const hitsSel = document.getElementById('hitsSelect').value||'自動';
-  const IV = 31;
+  function _iv(id){
+    const el=document.getElementById(id);
+    let v = el ? Number(el.value) : 31;
+    if(!isFinite(v)) v = 31;
+    v = Math.max(0, Math.min(31, Math.floor(v)));
+    return v;
+  }
+  const atkIV_atk = _iv('atkIV_atk');
+  const atkIV_spa = _iv('atkIV_spa');
+  const defIV_hp  = _iv('defIV_hp');
+  const defIV_def = _iv('defIV_def');
+  const defIV_spd = _iv('defIV_spd');
 
   const aBase = {
     HP: Number(atkP['HP']||0),
@@ -348,11 +359,11 @@ function readSoloInputs(){
   const defEV_def = Number(document.getElementById('defEV_def').value)||0;
   const defEV_spd = Number(document.getElementById('defEV_spd').value)||0;
 
-  const atkStat = statFromEV(aBase['攻撃']||0, IV, atkEV_atk, lvl, atkNat, '攻撃');
-  const spaStat = statFromEV(aBase['特攻']||0, IV, atkEV_spa, lvl, atkNat, '特攻');
-  const defHP   = statFromEV(dBase['HP']||0,  IV, defEV_hp,  defLvl, defNat, 'HP');
-  const defStat = statFromEV(dBase['防御']||0,IV, defEV_def, defLvl, defNat, '防御');
-  const spdStat = statFromEV(dBase['特防']||0,IV, defEV_spd, defLvl, defNat, '特防');
+  const atkStat = statFromEV(aBase['攻撃']||0, atkIV_atk, atkEV_atk, lvl, atkNat, '攻撃');
+  const spaStat = statFromEV(aBase['特攻']||0, atkIV_spa, atkEV_spa, lvl, atkNat, '特攻');
+  const defHP   = statFromEV(dBase['HP']||0,  defIV_hp,  defEV_hp,  defLvl, defNat, 'HP');
+  const defStat = statFromEV(dBase['防御']||0,defIV_def, defEV_def, defLvl, defNat, '防御');
+  const spdStat = statFromEV(dBase['特防']||0,defIV_spd, defEV_spd, defLvl, defNat, '特防');
 
   return {
     att: {
@@ -493,7 +504,184 @@ function bindNameAutoFill(){
 }
 
 function init(){
-  setupTabs();
+  // Inner tabs (必要事項 / その他 / 加算)
+  (function setupSubTabs(){
+    document.querySelectorAll('.subtabs').forEach(tabs=>{
+      tabs.addEventListener('click', (ev)=>{
+        const btn = ev.target && ev.target.closest ? ev.target.closest('.subtab') : null;
+        if(!btn) return;
+        const key = btn.getAttribute('data-subtab');
+        if(!key) return;
+        tabs.querySelectorAll('.subtab').forEach(b=>b.classList.toggle('active', b===btn));
+        const card = tabs.closest('.card') || tabs.parentElement;
+        if(!card) return;
+        // Keep 必要事項(basic) always visible; only switch optional panels
+        card.querySelectorAll('.subview').forEach(v=>{
+          const sv = v.getAttribute('data-subview');
+          if(sv === 'basic'){
+            v.classList.add('active');
+            return;
+          }
+          v.classList.toggle('active', sv===key);
+        });
+      });
+    });
+  })();
+  
+function setupAdvToggles(){
+  document.querySelectorAll('.advToggle').forEach(btn=>{
+    const scope = btn.getAttribute('data-scope') || '';
+    // restore open state
+    const keyOpen = scope ? `PL_CALC_ADVOPEN_${scope}` : '';
+    try{
+      const wasOpen = keyOpen && localStorage.getItem(keyOpen)==='1';
+      const card = btn.closest('.card');
+      if(card && wasOpen){
+        card.classList.add('adv-open');
+        btn.classList.add('open');
+        btn.textContent = '詳細を閉じる';
+      }
+    }catch{}
+    btn.addEventListener('click', ()=>{
+      const card = btn.closest('.card');
+      if(!card) return;
+      const opening = !card.classList.contains('adv-open');
+      card.classList.toggle('adv-open', opening);
+      btn.classList.toggle('open', opening);
+      btn.textContent = opening ? '詳細を閉じる' : '詳細を開く';
+      // when opening, switch to advanced tab by default (but keep user's last subtab if any)
+      if(opening){
+        const tabs = card.querySelector('.subtabs');
+        if(tabs){
+          const keyTab = scope ? `PL_CALC_SUBTAB_${scope}` : '';
+          let want = 'advanced';
+          try{
+            const last = keyTab ? localStorage.getItem(keyTab) : '';
+            if(last) want = last;
+          }catch{}
+          const btn2 = tabs.querySelector(`.subtab[data-subtab="${want}"]`) || tabs.querySelector('.subtab[data-subtab="advanced"]');
+          if(btn2) btn2.click();
+        }
+      }
+      try{ if(keyOpen) localStorage.setItem(keyOpen, opening ? '1':'0'); }catch{}
+    });
+  });
+
+  // remember subtab selection
+  document.querySelectorAll('.subtabs').forEach(tabs=>{
+    tabs.addEventListener('click', (ev)=>{
+      const b = ev.target && ev.target.closest ? ev.target.closest('.subtab') : null;
+      if(!b) return;
+      const scope = tabs.getAttribute('data-scope') || '';
+      const keyTab = scope ? `PL_CALC_SUBTAB_${scope}` : '';
+      const sub = b.getAttribute('data-subtab') || '';
+      try{ if(keyTab && sub) localStorage.setItem(keyTab, sub); }catch{}
+    });
+  });
+}
+
+// --- Regulation filter (datalist) ---
+const REG_CSV_KEY = "PICKLAB_REG_CSV";
+const REG_ENABLED_KEY = "PICKLAB_REG_ENABLED";
+function parseBoolCell(v){
+  const s = String(v??"").trim().toLowerCase();
+  if(!s) return false;
+  return (s==="1"||s==="true"||s==="t"||s==="yes"||s==="y"||s==="ok"||s==="〇"||s==="○"||s==="採用"||s==="許可");
+}
+function splitCsvLineSimple(line){
+  // minimal CSV split supporting quotes
+  const out=[];
+  let cur="", q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(q){
+      if(ch==='"'){
+        if(line[i+1]==='"'){ cur+='"'; i++; }
+        else { q=false; }
+      }else cur+=ch;
+    }else{
+      if(ch==='"') q=true;
+      else if(ch===','){ out.push(cur); cur=""; }
+      else cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+function buildAllowedNoSetFromRegCsv(text){
+  const lines = String(text||"")
+    .replace(/\r\n/g,"\n").replace(/\r/g,"\n")
+    .split("\n").filter(l=>l.trim().length);
+  if(!lines.length) return new Set();
+  const header = splitCsvLineSimple(lines[0]).map(h=>String(h).trim());
+  const norm = (s)=>String(s||"").trim().toLowerCase();
+  const hnorm = header.map(norm);
+  const idxNo = (hnorm.indexOf("no")>=0)?hnorm.indexOf("no"): (hnorm.indexOf("図鑑no")>=0?hnorm.indexOf("図鑑no"):-1);
+  const idxAllow = (hnorm.indexOf("allow")>=0)?hnorm.indexOf("allow"):
+    (hnorm.indexOf("採用")>=0)?hnorm.indexOf("採用"):
+    (hnorm.indexOf("レギュ")>=0)?hnorm.indexOf("レギュ"):
+    (hnorm.indexOf("許可")>=0)?hnorm.indexOf("許可"):
+    (hnorm.length-1);
+  const allowed = new Set();
+  for(let i=1;i<lines.length;i++){
+    const cols = splitCsvLineSimple(lines[i]);
+    if(!parseBoolCell(cols[idxAllow])) continue;
+    const rawNo = (idxNo>=0 ? cols[idxNo] : "");
+    const num = parseInt(String(rawNo||"").trim(), 10);
+    if(Number.isFinite(num) && num>0) allowed.add(num);
+  }
+  return allowed;
+}
+async function applyRegFilter(enabled){
+  const status = document.getElementById('regFilterStatus');
+  const dl = document.getElementById('pkmList');
+  if(!dl) return;
+  if(!enabled){
+    // restore all names
+    const names = Array.from(new Set(POKEDEX.map(p=>p.名前))).sort((a,b)=>a.localeCompare(b,'ja'));
+    dl.innerHTML = names.map(n=>`<option value="${n}">`).join('');
+    if(status) status.textContent = "";
+    return;
+  }
+  let csv="";
+  try{ csv = localStorage.getItem(REG_CSV_KEY) || ""; }catch{}
+  if(!csv){
+    // fallback to default
+    try{
+      const res = await fetch('/regulation.csv', {cache:'no-cache'});
+      if(res.ok) csv = await res.text();
+      try{ if(csv) localStorage.setItem(REG_CSV_KEY, csv); }catch{}
+    }catch{}
+  }
+  if(!csv){
+    if(status) status.textContent = "レギュCSVが見つかりません";
+    return;
+  }
+  const allowedNos = buildAllowedNoSetFromRegCsv(csv);
+  const filtered = POKEDEX.filter(p=>allowedNos.has(parseInt(p.No,10)));
+  const names = Array.from(new Set(filtered.map(p=>p.名前))).sort((a,b)=>a.localeCompare(b,'ja'));
+  dl.innerHTML = names.map(n=>`<option value="${n}">`).join('');
+  if(status) status.textContent = `候補: ${names.length}体`;
+}
+function setupRegFilterUI(){
+  const chk = document.getElementById('regFilterToggle');
+  if(!chk) return;
+  let enabled = false;
+  try{ enabled = localStorage.getItem(REG_ENABLED_KEY)==='1'; }catch{}
+  chk.checked = enabled;
+  // apply once after pokedex loaded (we call after loadPokemonMaster)
+  chk.addEventListener('change', ()=>{
+    const on = !!chk.checked;
+    try{ localStorage.setItem(REG_ENABLED_KEY, on ? '1':'0'); }catch{}
+    applyRegFilter(on);
+  });
+}
+
+setupTabs();
+  setupAdvToggles();
+  setupRegFilterUI();
+  // apply current reg filter state
+  applyRegFilter(document.getElementById('regFilterToggle')?.checked);
   setupEVButtons();
   setupSelectors();
   refreshStatDisplays();
@@ -556,6 +744,32 @@ function _attachEvSlider(inputId, step=4){
   inp.insertAdjacentElement('afterend', wrap);
 }
 ['atkEV_atk','atkEV_spa','defEV_hp','defEV_def','defEV_spd'].forEach(id => _attachEvSlider(id, 4));
+
+// IV sliders (sync with number inputs)
+function _attachIvSlider(inputId){
+  const inp = document.getElementById(inputId);
+  if(!inp || inp.dataset.hasIvSlider) return;
+  inp.dataset.hasIvSlider = '1';
+  const wrap = document.createElement('div');
+  wrap.className = 'iv-slider-wrap';
+  const range = document.createElement('input');
+  range.type = 'range';
+  range.min = '0';
+  range.max = '31';
+  range.step = '1';
+  range.value = String(inp.value || 31);
+  range.className = 'iv-slider';
+  range.addEventListener('input', () => {
+    inp.value = String(range.value);
+    inp.dispatchEvent(new Event('input', {bubbles:true}));
+  });
+  inp.addEventListener('input', () => {
+    range.value = String(inp.value || 31);
+  });
+  wrap.appendChild(range);
+  inp.insertAdjacentElement('afterend', wrap);
+}
+['atkIV_atk','atkIV_spa','defIV_hp','defIV_def','defIV_spd'].forEach(id => _attachIvSlider(id));
 
 // Log (snapshot + restore) inspired by shadowtag
 const LOG_KEY = 'PICKLAB_BDC_LOG_V1';
@@ -679,7 +893,7 @@ _renderLogList();
   mountTeamGrids();
   const tcb=document.getElementById('teamCalcBtn'); if(tcb) tcb.addEventListener('click', teamCalc);
 
-  ;['atkName','defName','atkNature','defNature','level','defLevel','atkEV_atk','atkEV_spa','defEV_hp','defEV_def','defEV_spd'].forEach(id=>{
+  ;['atkName','defName','atkNature','defNature','level','defLevel','atkEV_atk','atkEV_spa','defEV_hp','defEV_def','defEV_spd','atkIV_atk','atkIV_spa','defIV_hp','defIV_def','defIV_spd'].forEach(id=>{
     const el = document.getElementById(id); if(el){
       const evt = (el.tagName==='SELECT')?'change':'input';
       el.addEventListener(evt, refreshStatDisplays);
