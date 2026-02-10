@@ -61,3 +61,46 @@ input:focus, select:focus{border-color:var(--accent2)}
   .grid2{grid-template-columns:1fr}
   .thead .tr, .tbody .tr{grid-template-columns:90px 1fr 1fr 1fr 1fr}
 }
+
+
+/* --- Calc tab (実数値計算) layout fix: prevent vertical stacking --- */
+.calcTitle{margin:0 0 6px;font-size:18px}
+.miniHelp{color:var(--muted);font-size:13px;margin-bottom:10px}
+
+.calcStatsGrid{
+  border:1px solid var(--line);
+  border-radius:12px;
+  overflow:auto;
+  background:#fff;
+}
+.calcStatsGrid .row{
+  display:grid;
+  grid-template-columns:64px 120px 72px 1fr 110px 120px;
+  gap:10px;
+  align-items:center;
+  padding:10px;
+  border-bottom:1px solid var(--line);
+  margin:0;
+  min-width:720px; /* allow horizontal scroll on small screens */
+}
+.calcStatsGrid .row:last-child{border-bottom:none}
+.calcStatsGrid .row.head{
+  position:sticky;
+  top:0;
+  z-index:2;
+  background:rgba(255,180,74,.18);
+  font-weight:700;
+}
+.calcStatsGrid .cell{min-width:0}
+.calcStatsGrid .cell.stat{font-weight:800}
+.calcStatsGrid .cell.na{color:var(--muted);text-align:center}
+.calcStatsGrid .mono{font-variant-numeric:tabular-nums}
+.calcStatsGrid .readonly{color:var(--muted)}
+.evFlex{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.evFlex input{width:90px}
+.evbtn{padding:6px 10px;border-radius:10px}
+
+@media (max-width:760px){
+  .calcStatsGrid .row{grid-template-columns:54px 110px 64px 1fr 96px 110px; padding:8px; gap:8px; min-width:680px}
+  .evFlex input{width:86px}
+}
