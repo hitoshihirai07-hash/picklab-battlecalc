@@ -130,3 +130,12 @@ input:focus, select:focus{border-color:var(--accent2)}
   .calcLayout{grid-template-columns:1fr}
   .rolls{grid-template-columns:1fr}
 }
+
+/* ---- Calc tab layout (reduce vertical length) ---- */
+.calcLayout{display:grid;grid-template-columns:1fr 360px;gap:12px;align-items:start}
+.calcInputs{min-width:0}
+.calcOutputs{min-width:0;position:sticky;top:72px;align-self:start}
+@media (max-width: 960px){
+  .calcLayout{grid-template-columns:1fr}
+  .calcOutputs{position:static;top:auto}
+}
