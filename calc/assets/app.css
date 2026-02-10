@@ -44,3 +44,14 @@
 .toptools{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:6px 0 10px; }
 .checkline{ display:flex; gap:8px; align-items:center; font-size:13px; }
 .muted{ opacity:.75; font-size:12px; }
+
+
+/* Quick sets (per-Pokemon) */
+.quick-sets{margin:.4rem 0 .6rem 0;}
+.quick-sets:empty{display:none;}
+.quick-sets .qs-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.25rem;}
+.quick-sets .qs-title{font-size:.85rem;opacity:.85;}
+.quick-sets .qs-row{display:flex;flex-wrap:wrap;gap:.35rem;}
+.quick-sets button.qs-btn{padding:.25rem .5rem;border-radius:999px;border:1px solid rgba(0,0,0,.15);background:#fff;font-size:.85rem;cursor:pointer;}
+.quick-sets button.qs-btn:hover{background:rgba(0,0,0,.04);}
+.quick-sets .qs-empty{font-size:.85rem;opacity:.6;}

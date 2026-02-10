@@ -773,6 +773,128 @@ function _attachIvSlider(inputId){
 
 // Log (snapshot + restore) inspired by shadowtag
 const LOG_KEY = 'PICKLAB_BDC_LOG_V1';
+// Per-Pokemon "most used" sets (saved from logs)
+const PKMSETS_KEY = 'PICKLAB_BDC_PKMSETS_V1';
+function _readPkmSets(){
+  try{
+    const raw = localStorage.getItem(PKMSETS_KEY);
+    const obj = raw ? JSON.parse(raw) : {};
+    return (obj && typeof obj === 'object') ? obj : {};
+  }catch{ return {}; }
+}
+function _writePkmSets(obj){
+  try{ localStorage.setItem(PKMSETS_KEY, JSON.stringify(obj)); }catch{}
+}
+function _sig(obj){
+  try{ return JSON.stringify(obj); }catch{ return String(Math.random()); }
+}
+function _collectAtkSet(inputs){
+  const pick = (k)=> (inputs?.[k] ?? '');
+  return {
+    atkNature: pick('atkNature'),
+    atkItem: pick('atkItem'),
+    atkType1: pick('atkType1'),
+    atkType2: pick('atkType2'),
+    atkEV_atk: pick('atkEV_atk'),
+    atkEV_spa: pick('atkEV_spa'),
+    atkIV_atk: pick('atkIV_atk'),
+    atkIV_spa: pick('atkIV_spa'),
+    move1: pick('move1'),
+    move2: pick('move2'),
+    move3: pick('move3'),
+    move4: pick('move4'),
+  };
+}
+function _collectDefSet(inputs){
+  const pick = (k)=> (inputs?.[k] ?? '');
+  return {
+    defLevel: pick('defLevel'),
+    defNature: pick('defNature'),
+    defItem: pick('defItem'),
+    defType1: pick('defType1'),
+    defType2: pick('defType2'),
+    defEV_hp: pick('defEV_hp'),
+    defEV_def: pick('defEV_def'),
+    defEV_spd: pick('defEV_spd'),
+    defIV_hp: pick('defIV_hp'),
+    defIV_def: pick('defIV_def'),
+    defIV_spd: pick('defIV_spd'),
+  };
+}
+function _bumpPkmSet(side, pkmName, setObj){
+  const name = (pkmName||'').trim();
+  if(!name) return;
+  const root = _readPkmSets();
+  root[name] = root[name] || {};
+  root[name][side] = Array.isArray(root[name][side]) ? root[name][side] : [];
+  const arr = root[name][side];
+  const sig = _sig(setObj);
+  const found = arr.find(e=>e.sig===sig);
+  if(found){ found.count = (found.count||0) + 1; found.ts = Date.now(); }
+  else arr.push({sig, count:1, ts: Date.now(), set: setObj});
+  // keep top by count/ts
+  arr.sort((a,b)=> (b.count||0)-(a.count||0) || (b.ts||0)-(a.ts||0));
+  root[name][side] = arr.slice(0, 20);
+  _writePkmSets(root);
+}
+function _applySet(setObj){
+  Object.entries(setObj||{}).forEach(([id,val])=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.value = String(val ?? '');
+  });
+  _scheduleSolo();
+}
+function _formatSetLabel(side, setObj){
+  if(!setObj) return '';
+  if(side==='atk'){
+    const nat = setObj.atkNature || '';
+    const m = [setObj.move1,setObj.move2,setObj.move3,setObj.move4].filter(Boolean).slice(0,2).join(' / ');
+    return [nat, m].filter(Boolean).join(' ・ ') || 'セット';
+  }else{
+    const nat = setObj.defNature || '';
+    const ev = [setObj.defEV_hp,setObj.defEV_def,setObj.defEV_spd].filter(Boolean).join('/');
+    return [nat, ev?('EV '+ev):''].filter(Boolean).join(' ・ ') || 'セット';
+  }
+}
+function _renderQuickSets(side){
+  const box = document.getElementById(side==='atk'?'atkQuickSets':'defQuickSets');
+  if(!box) return;
+  const pkm = (document.getElementById(side==='atk'?'atkName':'defName')?.value||'').trim();
+  if(!pkm){ box.innerHTML=''; return; }
+  const root = _readPkmSets();
+  const arr = (root?.[pkm]?.[side]) || [];
+  if(!arr.length){
+    box.innerHTML = `<div class="qs-head"><div class="qs-title">最近セット</div></div><div class="qs-empty">（このポケモンのログがまだありません）</div>`;
+    return;
+  }
+  const top = arr.slice(0,5);
+  box.innerHTML = `
+    <div class="qs-head"><div class="qs-title">最近セット</div></div>
+    <div class="qs-row">
+      ${top.map((e,idx)=>`<button class="qs-btn" type="button" data-idx="${idx}">${_formatSetLabel(side, e.set)}</button>`).join('')}
+    </div>
+  `;
+  box.querySelectorAll('button.qs-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const idx = Number(btn.dataset.idx||0);
+      const ent = top[idx];
+      if(ent?.set) _applySet(ent.set);
+    });
+  });
+}
+function _wireQuickSets(){
+  const atk = document.getElementById('atkName');
+  const def = document.getElementById('defName');
+  const hook = (el, side)=>{
+    if(!el) return;
+    ['change','blur'].forEach(ev=> el.addEventListener(ev, ()=>_renderQuickSets(side)));
+  };
+  hook(atk,'atk'); hook(def,'def');
+  // initial
+  _renderQuickSets('atk'); _renderQuickSets('def');
+}
+
 function _collectSoloInputs(){
   const root = document.getElementById('view-solo');
   if(!root) return {};
