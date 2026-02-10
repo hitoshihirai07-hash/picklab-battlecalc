@@ -84,10 +84,90 @@ function loadMoves(){
 function getMoveByNameJP(name){ return MOVES.find(m=>m.name===name) || null; }
 
 const POKEDEX = [];
+
+// --- Regulation (from Simulation) ---
+const REG_CSV_KEY = "PICKLAB_REG_CSV";
+const REG_ENABLED_KEY = "PICKLAB_REG_ENABLED";
+const DEFAULT_REG_URL = "/regulation.csv";
+
+function _parseBool(v){
+  const s = String(v ?? "").trim().toLowerCase();
+  return (s === "true" || s === "1" || s === "yes" || s === "y" || s === "on" || s === "〇" || s === "○");
+}
+function _splitCsvLine(line){
+  const out = [];
+  let cur = "";
+  let q = false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(q){
+      if(ch === '"'){
+        if(line[i+1] === '"'){ cur += '"'; i++; }
+        else q=false;
+      }else cur += ch;
+    }else{
+      if(ch === '"') q=true;
+      else if(ch === ','){ out.push(cur); cur=""; }
+      else cur += ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+function _norm(s){ return String(s||"").trim(); }
+
+async function _loadRegCsvText(){
+  try{
+    const enabled = _parseBool(localStorage.getItem(REG_ENABLED_KEY));
+    if(!enabled) return null;
+    const raw = localStorage.getItem(REG_CSV_KEY);
+    if(raw && raw.trim().length) return raw;
+  }catch{}
+  try{
+    const res = await fetch(DEFAULT_REG_URL, {cache:"no-cache"});
+    if(!res.ok) return null;
+    return await res.text();
+  }catch{
+    return null;
+  }
+}
+
+async function _getAllowedNos(){
+  const text = await _loadRegCsvText();
+  if(!text) return null; // regulation not enabled / unavailable
+  const lines = String(text||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n").filter(l=>l.trim().length);
+  if(!lines.length) return null;
+  const header = _splitCsvLine(lines[0]).map(h=>_norm(h));
+  const headerNorm = header.map(h=>_norm(h).toLowerCase());
+  const idx = (name) => headerNorm.indexOf(_norm(name).toLowerCase());
+  const idxNo = idx("no")>=0 ? idx("no") : idx("No");
+  const idxAllow = (idx("allow")>=0 ? idx("allow") : (idx("採用")>=0 ? idx("採用") : (idx("レギュ")>=0 ? idx("レギュ") : header.length-1)));
+  const allowed = new Set();
+  for(let i=1;i<lines.length;i++){
+    const cols = _splitCsvLine(lines[i]);
+    const allow = _parseBool(cols[idxAllow]);
+    if(!allow) continue;
+    let no = null;
+    if(idxNo>=0 && cols[idxNo]){
+      const n = parseInt(cols[idxNo],10);
+      if(!isNaN(n)) no = n;
+    }
+    if(no!==null) allowed.add(no);
+  }
+  return allowed.size ? allowed : new Set(); // if empty allow-list, treat as empty (filter to none)
+}
+
 function loadPokemonMaster(){
-  return fetch('pokemon_master.json').then(r=>r.json()).then(arr=>{
+  return fetch('pokemon_master.json').then(r=>r.json()).then(async arr=>{
     arr.forEach(row=>POKEDEX.push(row));
-    const names = Array.from(new Set(POKEDEX.map(p=>p.名前))).sort((a,b)=>a.localeCompare(b,'ja'));
+    let names;
+    try{
+      const allowedNos = await _getAllowedNos();
+      const rows = (allowedNos===null) ? POKEDEX : POKEDEX.filter(p=>allowedNos.has(Number(p.No)));
+      names = Array.from(new Set(rows.map(p=>p.名前))).sort((a,b)=>a.localeCompare(b,'ja'));
+    }catch{
+      names = Array.from(new Set(POKEDEX.map(p=>p.名前))).sort((a,b)=>a.localeCompare(b,'ja'));
+    }
     const dl = document.getElementById('pkmList');
     if(dl){ dl.innerHTML = names.map(n=>`<option value="${n}">`).join(''); }
   }).catch(_=>{});
@@ -425,6 +505,177 @@ function init(){
   });
   loadPokemonMaster().then(bindNameAutoFill);
   document.getElementById('calcBtn').addEventListener('click', renderSolo);
+
+// Auto recalculation (no need to press the button)
+const _soloRoot = document.getElementById('view-solo');
+let _soloRaf = 0;
+function _scheduleSolo(){
+  if(_soloRaf) return;
+  _soloRaf = requestAnimationFrame(() => {
+    _soloRaf = 0;
+    try{ renderSolo(); }catch(_){}
+    try{ if(typeof refreshStatDisplays === 'function') refreshStatDisplays(); }catch(_){}
+  });
+}
+if(_soloRoot){
+  _soloRoot.addEventListener('input', _scheduleSolo, {passive:true});
+  _soloRoot.addEventListener('change', _scheduleSolo, {passive:true});
+}
+// Keep the button as "manual refresh" (optional)
+try{
+  const cb=document.getElementById('calcBtn');
+  if(cb){
+    cb.textContent = '再計算';
+    cb.title = '入力は自動で反映されます（手動更新も可能）';
+  }
+}catch(_){}
+
+// EV sliders (sync with number inputs)
+function _attachEvSlider(inputId, step=4){
+  const inp = document.getElementById(inputId);
+  if(!inp || inp.dataset.hasSlider) return;
+  inp.dataset.hasSlider = '1';
+  const wrap = document.createElement('div');
+  wrap.className = 'ev-slider-wrap';
+  const range = document.createElement('input');
+  range.type = 'range';
+  range.min = inp.min || '0';
+  range.max = inp.max || '252';
+  range.step = String(step);
+  range.value = String(inp.value || 0);
+  range.className = 'ev-slider';
+  range.addEventListener('input', () => {
+    inp.value = String(range.value);
+    inp.dispatchEvent(new Event('input', {bubbles:true}));
+  });
+  inp.addEventListener('input', () => {
+    range.value = String(inp.value || 0);
+  });
+  wrap.appendChild(range);
+  // Insert slider right after the number input
+  inp.insertAdjacentElement('afterend', wrap);
+}
+['atkEV_atk','atkEV_spa','defEV_hp','defEV_def','defEV_spd'].forEach(id => _attachEvSlider(id, 4));
+
+// Log (snapshot + restore) inspired by shadowtag
+const LOG_KEY = 'PICKLAB_BDC_LOG_V1';
+function _collectSoloInputs(){
+  const root = document.getElementById('view-solo');
+  if(!root) return {};
+  const data = {};
+  root.querySelectorAll('input,select,textarea').forEach(el=>{
+    if(!el.id) return;
+    if(el.type === 'checkbox') data[el.id] = !!el.checked;
+    else data[el.id] = el.value;
+  });
+  return data;
+}
+function _applySoloInputs(data){
+  const root = document.getElementById('view-solo');
+  if(!root) return;
+  root.querySelectorAll('input,select,textarea').forEach(el=>{
+    if(!el.id) return;
+    if(!(el.id in data)) return;
+    if(el.type === 'checkbox') el.checked = !!data[el.id];
+    else el.value = String(data[el.id] ?? '');
+  });
+  _scheduleSolo();
+}
+function _readLogs(){
+  try{
+    const raw = localStorage.getItem(LOG_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  }catch{ return []; }
+}
+function _writeLogs(arr){
+  try{ localStorage.setItem(LOG_KEY, JSON.stringify(arr.slice(0, 100))); }catch{}
+}
+function _formatLogTitle(entry){
+  const a = (entry?.inputs?.atkName || '').trim();
+  const d = (entry?.inputs?.defName || '').trim();
+  const m1 = (entry?.inputs?.move1 || '').trim();
+  return [a,'→',d,(m1?(' / '+m1):'')].join(' ');
+}
+function _ensureLogUI(){
+  const res = document.getElementById('soloResult');
+  if(!res) return null;
+  let box = document.getElementById('soloLogBox');
+  if(box) return box;
+  const controls = document.querySelector('#view-solo .inline-btns');
+  if(controls){
+    const saveBtn = document.createElement('button');
+    saveBtn.id = 'saveLogBtn';
+    saveBtn.className = 'btn-green';
+    saveBtn.textContent = 'ログ保存';
+    saveBtn.addEventListener('click', () => {
+      const logs=_readLogs();
+      logs.unshift({ts: Date.now(), inputs: _collectSoloInputs()});
+      _writeLogs(logs);
+      _renderLogList();
+    });
+    controls.appendChild(saveBtn);
+  }
+  box = document.createElement('div');
+  box.id = 'soloLogBox';
+  box.className = 'log-box';
+  box.innerHTML = `
+    <div class="log-head">
+      <div class="log-title">ログ</div>
+      <button class="btn-danger" id="clearLogBtn">全削除</button>
+    </div>
+    <div id="soloLogList" class="log-list"></div>
+  `;
+  res.insertAdjacentElement('afterend', box);
+  box.querySelector('#clearLogBtn')?.addEventListener('click', () => {
+    _writeLogs([]);
+    _renderLogList();
+  });
+  return box;
+}
+function _renderLogList(){
+  const box = _ensureLogUI();
+  if(!box) return;
+  const list = box.querySelector('#soloLogList');
+  const logs = _readLogs();
+  if(!logs.length){
+    list.innerHTML = '<div class="log-empty">ログはまだありません（ログ保存でスナップショット）</div>';
+    return;
+  }
+  list.innerHTML = logs.map((e,idx)=>{
+    const dt = new Date(e.ts||Date.now());
+    const t = dt.toLocaleString('ja-JP');
+    const title = _formatLogTitle(e);
+    return `<div class="log-row" data-idx="${idx}">
+      <div class="log-main">
+        <div class="log-row-title">${title || '(無題)'}</div>
+        <div class="log-row-sub">${t}</div>
+      </div>
+      <div class="log-actions">
+        <button class="btn-accent" data-act="restore">復元</button>
+        <button class="btn-danger" data-act="del">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.log-row').forEach(row=>{
+    row.addEventListener('click', (ev)=>{
+      const idx = Number(row.dataset.idx);
+      const act = ev.target?.dataset?.act;
+      const logs=_readLogs();
+      const entry=logs[idx];
+      if(!entry) return;
+      if(act==='del'){
+        logs.splice(idx,1); _writeLogs(logs); _renderLogList(); 
+      }else if(act==='restore'){
+        _applySoloInputs(entry.inputs||{});
+      }
+    });
+  });
+}
+// Create log UI now (collapsed list will show)
+_renderLogList();
+
+
   mountTeamGrids();
   const tcb=document.getElementById('teamCalcBtn'); if(tcb) tcb.addEventListener('click', teamCalc);
 

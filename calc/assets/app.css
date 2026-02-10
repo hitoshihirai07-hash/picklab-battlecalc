@@ -4,3 +4,20 @@
 .combo-btn{ display:none !important; }
 /* Expand input to full width when button is hidden */
 .combo-wrap{ grid-template-columns: 1fr !important; }
+
+
+/* === PickLab renewal: EV slider + log UI === */
+.ev-slider-wrap{ margin-top:6px; }
+.ev-slider{ width:100%; }
+
+.log-box{ margin-top:10px; padding:10px; border:1px solid rgba(0,0,0,.12); border-radius:10px; background:rgba(255,255,255,.6); }
+.log-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.log-title{ font-weight:700; }
+.log-list{ display:flex; flex-direction:column; gap:8px; }
+.log-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px; border-radius:10px; border:1px solid rgba(0,0,0,.10); background:rgba(255,255,255,.85); }
+.log-main{ min-width:0; }
+.log-row-title{ font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:52vw; }
+.log-row-sub{ font-size:12px; opacity:.75; }
+.log-actions{ display:flex; gap:6px; flex-shrink:0; }
+.log-empty{ font-size:13px; opacity:.75; padding:6px 2px; }
+
