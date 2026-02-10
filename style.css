@@ -95,3 +95,13 @@ button.mini{
 }
 .statLine{margin-top:6px}
 .warn{color:#b42318;font-weight:600}
+
+
+/* First-time guide (details/summary) */
+.guide summary{cursor:pointer; list-style:none;}
+.guide summary::-webkit-details-marker{display:none;}
+.guide summary .panelTitle{padding-right:22px;}
+.guide summary{position:relative;}
+.guide summary:after{content:'▼'; position:absolute; right:10px; top:18px; font-size:12px; opacity:.75;}
+details[open].guide summary:after{content:'▲';}
+.guide .h3{margin:10px 0 6px; font-size:15px;}
