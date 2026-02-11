@@ -232,6 +232,7 @@
       // Some environments (extensions / filters / corporate networks) can block a specific CDN.
       // Try multiple mirrors with a timeout so we don't get stuck at "traineddata 0%" forever.
       const langCandidates = [
+        'https://tessdata.projectnaptha.com/4.0.0_best/',
         'https://cdn.jsdelivr.net/npm/@tesseract.js-data/jpn@1.0.0/4.0.0_best_int/',
         'https://unpkg.com/@tesseract.js-data/jpn@1.0.0/4.0.0_best_int/',
       ];
