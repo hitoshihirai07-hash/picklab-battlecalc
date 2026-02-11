@@ -36,6 +36,7 @@
   let ocrReady = false;
   let ocrWorker = null;
   let ocrLoading = false;
+  let ocrErrorMsg = "";
 
   // Dex names
   let dexReady = false;
@@ -46,7 +47,7 @@
   function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
 
   function normalizeJa(s){
-    return (s||"")
+    return (s||"").normalize('NFKC')
       .replace(/\s+/g,"")
       .replace(/[\u2000-\u206F\u2E00-\u2E7F'"`^~_\-–—\.,:;!\?\(\)\[\]\{\}<>\\\/|]/g, "")
       .replace(/[（【\[]/g, "(")
@@ -215,6 +216,7 @@
     if(ocrReady) return;
     if(ocrLoading) return;
     ocrLoading = true;
+    ocrErrorMsg = "";
     nameEl.textContent = 'OCR準備中…';
     confEl.textContent = '';
     try{
@@ -237,13 +239,15 @@
         }
       });
       await ocrWorker.setParameters({
-        tessedit_pageseg_mode: '6',
-        preserve_interword_spaces: '1'
+        // name is usually one line
+        tessedit_pageseg_mode: '7',
+        preserve_interword_spaces: '1',
+        user_defined_dpi: '300'
       });
       ocrReady = true;
     }catch(err){
       console.error(err);
-      rawEl.textContent = 'OCRの準備に失敗しました。ネットワーク or ブロック設定を確認してください。';
+      ocrErrorMsg = 'OCRの準備に失敗しました（ネットワーク / ブロック設定 / 拡張機能の影響の可能性）。';
       chkOcr.checked = false;
       ocrReady = false;
     }finally{
@@ -281,7 +285,7 @@
         if(len > bestLen){ bestLen = len; best = {x:runStart, y, w:len, h:1}; }
       }
     }
-    if(!best || bestLen < Math.floor(w*0.18)) return null;
+    if(!best || bestLen < Math.max(40, Math.floor(w*0.08))) return null;
 
     // Expand height: include nearby green pixels to approximate bar thickness
     let top = best.y, bot = best.y;
@@ -300,22 +304,152 @@
     return {x:best.x, y:top, w:best.w, h:Math.max(1, bot-top+1)};
   }
 
-  function preprocessForOcr(srcCanvas){
-    // grayscale + threshold (simple)
+  
+  function detectGameRectFromFrame(frameCanvas){
+    // Detect the active game picture area inside an OBS canvas (letterbox / borders tolerant).
+    // Returns {x,y,w,h} in full-frame coords. Falls back to full frame if unsure.
+    try{
+      const W = frameCanvas.width, H = frameCanvas.height;
+      const targetW = 480;
+      const targetH = Math.max(1, Math.round(targetW * (H/W)));
+      const small = document.createElement('canvas');
+      small.width = targetW; small.height = targetH;
+      const sctx = small.getContext('2d', {willReadFrequently:true});
+      sctx.drawImage(frameCanvas, 0, 0, W, H, 0, 0, targetW, targetH);
+      const img = sctx.getImageData(0,0,targetW,targetH);
+      const d = img.data;
+
+      // Consider pixels "active" if not near-black (sum > threshold) OR if they have enough chroma.
+      const sumThr = 50;
+      let minX = targetW, minY = targetH, maxX = -1, maxY = -1;
+      const stride = 2; // faster
+      for(let y=0;y<targetH;y+=stride){
+        for(let x=0;x<targetW;x+=stride){
+          const i = (y*targetW + x) * 4;
+          const r=d[i], g=d[i+1], b=d[i+2];
+          const sum = r+g+b;
+          const chroma = Math.max(r,g,b) - Math.min(r,g,b);
+          if(sum > sumThr || chroma > 18){
+            if(x<minX) minX=x;
+            if(y<minY) minY=y;
+            if(x>maxX) maxX=x;
+            if(y>maxY) maxY=y;
+          }
+        }
+      }
+      if(maxX<=minX || maxY<=minY){
+        return {x:0,y:0,w:W,h:H};
+      }
+      // Expand a little margin
+      const padX = Math.round((maxX-minX) * 0.03);
+      const padY = Math.round((maxY-minY) * 0.03);
+      minX = clamp(minX - padX, 0, targetW-1);
+      maxX = clamp(maxX + padX, 0, targetW-1);
+      minY = clamp(minY - padY, 0, targetH-1);
+      maxY = clamp(maxY + padY, 0, targetH-1);
+
+      const scaleX = W / targetW;
+      const scaleY = H / targetH;
+      const gx = Math.floor(minX * scaleX);
+      const gy = Math.floor(minY * scaleY);
+      const gw = Math.max(1, Math.floor((maxX-minX+1) * scaleX));
+      const gh = Math.max(1, Math.floor((maxY-minY+1) * scaleY));
+
+      // Sanity: if too small, ignore.
+      if(gw < W*0.35 || gh < H*0.35){
+        return {x:0,y:0,w:W,h:H};
+      }
+      return {x:gx, y:gy, w:gw, h:gh};
+    }catch(e){
+      return {x:0,y:0,w:frameCanvas.width,h:frameCanvas.height};
+    }
+  }
+
+  function findHpBarOnCanvas(frameCanvas, searchRect){
+    // Multi-scale search for HP green bar within a given rect of the full frame.
+    const W = frameCanvas.width, H = frameCanvas.height;
+    const r = searchRect || {x:0,y:0,w:W,h:H};
+    const smallW = 520;
+    const smallH = Math.max(1, Math.round(smallW * (r.h/r.w)));
+    const small = document.createElement('canvas');
+    small.width = smallW; small.height = smallH;
+    const sctx = small.getContext('2d', {willReadFrequently:true});
+    sctx.drawImage(frameCanvas, r.x, r.y, r.w, r.h, 0, 0, smallW, smallH);
+    const img = sctx.getImageData(0,0,smallW,smallH);
+    const hp = findHpBarRect(img, smallW, smallH);
+    if(!hp) return null;
+    const scaleX = r.w / smallW;
+    const scaleY = r.h / smallH;
+    return {
+      x: r.x + Math.floor(hp.x * scaleX),
+      y: r.y + Math.floor(hp.y * scaleY),
+      w: Math.floor(hp.w * scaleX),
+      h: Math.floor(hp.h * scaleY)
+    };
+  }
+
+function preprocessForOcr(srcCanvas){
+    // OCR向け前処理：グレースケール → コントラスト強調 → Otsu二値化（白背景/黒文字に寄せる）
     const c = document.createElement('canvas');
     c.width = srcCanvas.width;
     c.height = srcCanvas.height;
-    const ctx = c.getContext('2d');
+    const ctx = c.getContext('2d', {willReadFrequently:true});
     ctx.drawImage(srcCanvas,0,0);
+
     const img = ctx.getImageData(0,0,c.width,c.height);
     const d = img.data;
+    const hist = new Uint32Array(256);
+
+    // 1) grayscale + contrast
+    let sum = 0;
+    const contrast = 1.35; // 1.0〜1.6くらいが効きやすい
+    const mid = 128;
     for(let i=0;i<d.length;i+=4){
       const r=d[i], g=d[i+1], b=d[i+2];
-      const y = (r*0.299 + g*0.587 + b*0.114);
-      const v = y > 170 ? 255 : (y < 90 ? 0 : y);
-      d[i]=d[i+1]=d[i+2]=v;
+      let y = (r*0.299 + g*0.587 + b*0.114);
+      y = (y - mid) * contrast + mid;
+      y = clamp(Math.round(y), 0, 255);
+      d[i]=d[i+1]=d[i+2]=y;
       d[i+3]=255;
+      hist[y]++;
+      sum += y;
     }
+    const total = (d.length/4) || 1;
+    const mean = sum / total;
+
+    // 2) Otsu threshold
+    let sumAll = 0;
+    for(let t=0;t<256;t++) sumAll += t * hist[t];
+    let sumB = 0;
+    let wB = 0;
+    let wF = 0;
+    let varMax = 0;
+    let thr = 160;
+    for(let t=0;t<256;t++){
+      wB += hist[t];
+      if(wB === 0) continue;
+      wF = total - wB;
+      if(wF === 0) break;
+      sumB += t * hist[t];
+      const mB = sumB / wB;
+      const mF = (sumAll - sumB) / wF;
+      const varBetween = wB * wF * (mB - mF) * (mB - mF);
+      if(varBetween > varMax){
+        varMax = varBetween;
+        thr = t;
+      }
+    }
+
+    // 3) binarize
+    // 画面は暗背景＋白文字が多いので、平均が暗ければ「明るい方＝文字」とみなす
+    const brightText = mean < 145;
+    for(let i=0;i<d.length;i+=4){
+      const y = d[i];
+      const isText = brightText ? (y > thr) : (y < thr);
+      const v = isText ? 0 : 255; // 黒文字 / 白背景
+      d[i]=d[i+1]=d[i+2]=v;
+    }
+
     ctx.putImageData(img,0,0);
     return c;
   }
@@ -331,24 +465,60 @@
     const fctx = frame.getContext('2d', {willReadFrequently:true});
     fctx.drawImage(video, 0, 0, W, H);
 
-    // Analyze ROI (top-right) - relative, not absolute
-    const roi = {
-      x: Math.floor(W * 0.58),
-      y: Math.floor(H * 0.05),
-      w: Math.floor(W * 0.40),
-      h: Math.floor(H * 0.26)
-    };
+    // Detect active game picture area (letterbox / borders tolerant)
+const gameRect = detectGameRectFromFrame(frame);
 
-    const smallW = 360;
-    const smallH = Math.round(smallW * (roi.h/roi.w));
-    const small = document.createElement('canvas');
-    small.width = smallW; small.height = smallH;
-    const sctx = small.getContext('2d', {willReadFrequently:true});
-    sctx.drawImage(frame, roi.x, roi.y, roi.w, roi.h, 0, 0, smallW, smallH);
-    const img = sctx.getImageData(0,0,smallW,smallH);
-    const hp = findHpBarRect(img, smallW, smallH);
+// Search rect (primary): top-right inside the detected game area
+let roi = {
+  x: Math.floor(gameRect.x + gameRect.w * 0.55),
+  y: Math.floor(gameRect.y + gameRect.h * 0.03),
+  w: Math.floor(gameRect.w * 0.44),
+  h: Math.floor(gameRect.h * 0.32)
+};
+roi.x = clamp(roi.x, 0, W-1);
+roi.y = clamp(roi.y, 0, H-1);
+roi.w = clamp(roi.w, 60, W);
+roi.h = clamp(roi.h, 60, H);
+if(roi.x + roi.w > W) roi.w = W - roi.x;
+if(roi.y + roi.h > H) roi.h = H - roi.y;
 
-    if(!hp){
+function searchHpIn(rect, sw){
+  const smallW = sw || 360;
+  const smallH = Math.max(1, Math.round(smallW * (rect.h/rect.w)));
+  const small = document.createElement('canvas');
+  small.width = smallW; small.height = smallH;
+  const sctx = small.getContext('2d', {willReadFrequently:true});
+  sctx.drawImage(frame, rect.x, rect.y, rect.w, rect.h, 0, 0, smallW, smallH);
+  const img = sctx.getImageData(0,0,smallW,smallH);
+  const hp = findHpBarRect(img, smallW, smallH);
+  if(!hp) return null;
+  const scaleX = rect.w / smallW;
+  const scaleY = rect.h / smallH;
+  return {
+    x: rect.x + Math.floor(hp.x * scaleX),
+    y: rect.y + Math.floor(hp.y * scaleY),
+    w: Math.floor(hp.w * scaleX),
+    h: Math.floor(hp.h * scaleY)
+  };
+}
+
+let hpFull = searchHpIn(roi, 360);
+let usedRoi = roi;
+
+// Fallback: search wider area (top portion of the detected game area)
+if(!hpFull){
+  const wide = {
+    x: gameRect.x,
+    y: gameRect.y,
+    w: gameRect.w,
+    h: Math.max(1, Math.floor(gameRect.h * 0.58))
+  };
+  hpFull = searchHpIn(wide, 520);
+  usedRoi = wide;
+}
+
+
+    if(!hpFull){
       drawOverlay([]);
       nameEl.textContent = '-';
       confEl.textContent = 'HPバー検出なし（画面右上にHPが出る場面で試してください）';
@@ -356,16 +526,6 @@
       btnAddParty.disabled = true;
       return;
     }
-
-    // Convert hp rect to full-frame coords
-    const scaleX = roi.w / smallW;
-    const scaleY = roi.h / smallH;
-    const hpFull = {
-      x: roi.x + Math.floor(hp.x * scaleX),
-      y: roi.y + Math.floor(hp.y * scaleY),
-      w: Math.floor(hp.w * scaleX),
-      h: Math.floor(hp.h * scaleY)
-    };
 
     // Name crop: expand around bar to include the name text (usually above/left of bar)
     const crop = {
@@ -378,27 +538,33 @@
     if(crop.y + crop.h > H) crop.h = H - crop.y;
 
     drawOverlay([
-      {x: roi.x, y: roi.y, w: roi.w, h: roi.h},
+      {x: usedRoi.x, y: usedRoi.y, w: usedRoi.w, h: usedRoi.h},
       {x: hpFull.x, y: hpFull.y, w: hpFull.w, h: Math.max(8,hpFull.h)},
       {x: crop.x, y: crop.y, w: crop.w, h: crop.h}
     ]);
 
-    // Build OCR canvas
-    const o = document.createElement('canvas');
-    const scaleUp = 2;
-    o.width = Math.floor(crop.w * scaleUp);
-    o.height = Math.floor(crop.h * scaleUp);
-    const octx = o.getContext('2d', {willReadFrequently:true});
-    octx.imageSmoothingEnabled = false;
-    octx.drawImage(frame, crop.x, crop.y, crop.w, crop.h, 0, 0, o.width, o.height);
-    const pre = preprocessForOcr(o);
+    async function ocrFromCrop(scaleUp){
+      const o = document.createElement('canvas');
+      o.width = Math.floor(crop.w * scaleUp);
+      o.height = Math.floor(crop.h * scaleUp);
+      const octx = o.getContext('2d', {willReadFrequently:true});
+      octx.imageSmoothingEnabled = false;
+      octx.drawImage(frame, crop.x, crop.y, crop.w, crop.h, 0, 0, o.width, o.height);
+      const pre = preprocessForOcr(o);
+      const r = await ocrWorker.recognize(pre);
+      return (r && r.data && r.data.text) ? r.data.text : "";
+    }
 
     let raw = "";
     if(chkOcr.checked){
       await ensureOcr();
       if(ocrReady){
-        const r = await ocrWorker.recognize(pre);
-        raw = (r && r.data && r.data.text) ? r.data.text : "";
+        // 1st try: x3
+        raw = await ocrFromCrop(3);
+        // 2nd try: x4（小さい文字対策）
+        if(!normalizeJa(raw)){
+          raw = await ocrFromCrop(4);
+        }
       }
     }
 
@@ -408,7 +574,15 @@
     }
 
     lastRaw = raw;
-    rawEl.textContent = raw ? `OCR: ${raw.replace(/\n+/g,' / ')}` : '（OCR OFF）';
+    if(ocrErrorMsg){
+      rawEl.textContent = ocrErrorMsg;
+    }else if(!chkOcr.checked){
+      rawEl.textContent = '（OCR OFF）';
+    }else if(!normalizeJa(raw)){
+      rawEl.textContent = '（OCR結果なし）';
+    }else{
+      rawEl.textContent = `OCR: ${raw.replace(/\n+/g,' / ')}`;
+    }
 
     const extracted = extractNameCandidate(raw);
     const {name, score} = bestMatchName(extracted || raw);
@@ -422,7 +596,11 @@
       btnAddParty.disabled = false;
     }else{
       nameEl.textContent = '-';
-      confEl.textContent = '判定できません（OCR ON推奨 / 文字が小さい可能性）';
+      confEl.textContent = ocrErrorMsg
+        ? ocrErrorMsg
+        : chkOcr.checked
+          ? '判定できません（相手名の文字が読み取れません。右上に相手名が出ている場面で試してください）'
+          : '判定できません（OCRをONにしてください）';
       btnAddParty.disabled = true;
     }
   }
