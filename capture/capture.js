@@ -31,6 +31,7 @@
   let lastName = "";
   let lastRaw = "";
   let lastConf = 0;
+  let detecting = false;
 
   // OCR
   let ocrReady = false;
@@ -259,6 +260,96 @@
     return (g > 110 && g > r + 28 && g > b + 28);
   }
 
+  // ---- Fully automatic OCR mode (no HP-bar detection) ----
+  // We avoid relying on HP bar color/shape because it breaks across themes, HP colors (green/yellow/red),
+  // and capture scaling/letterboxing. Instead, we OCR candidate regions and match against the local dex.
+
+  // Reuse canvases to reduce GC / jank.
+  const _frame = document.createElement('canvas');
+  const _roi = document.createElement('canvas');
+  const _sig = { a: 0, b: 0, lastAt: 0 };
+
+  function rectClamp(r, W, H){
+    const x = clamp(Math.floor(r.x), 0, W-1);
+    const y = clamp(Math.floor(r.y), 0, H-1);
+    let w = clamp(Math.floor(r.w), 1, W);
+    let h = clamp(Math.floor(r.h), 1, H);
+    if(x + w > W) w = W - x;
+    if(y + h > H) h = H - y;
+    return {x,y,w,h};
+  }
+
+  function quickSignature(ctx, r){
+    // downscale sampling signature: (sumY, sumEdge)
+    const W = ctx.canvas.width, H = ctx.canvas.height;
+    const rr = rectClamp(r, W, H);
+    const sw = 96;
+    const sh = Math.max(1, Math.round(sw * (rr.h/rr.w)));
+    _roi.width = sw; _roi.height = sh;
+    const sctx = _roi.getContext('2d', {willReadFrequently:true});
+    sctx.drawImage(ctx.canvas, rr.x, rr.y, rr.w, rr.h, 0, 0, sw, sh);
+    const img = sctx.getImageData(0,0,sw,sh).data;
+    let sum = 0;
+    let edge = 0;
+    for(let y=1;y<sh-1;y+=2){
+      for(let x=1;x<sw-1;x+=2){
+        const i = (y*sw + x) * 4;
+        const r0 = img[i], g0 = img[i+1], b0 = img[i+2];
+        const y0 = (r0*0.299 + g0*0.587 + b0*0.114);
+        sum += y0;
+        const i2 = (y*sw + (x+1)) * 4;
+        const r1 = img[i2], g1 = img[i2+1], b1 = img[i2+2];
+        const y1 = (r1*0.299 + g1*0.587 + b1*0.114);
+        edge += Math.abs(y1 - y0);
+      }
+    }
+    return {sum: Math.round(sum), edge: Math.round(edge)};
+  }
+
+  function extractCandidates(text){
+    const t = (text||"")
+      .replace(/Lv\.?\s*\d+/gi,'')
+      .replace(/[0-9]/g,'')
+      .replace(/[\r\n]+/g,' ')
+      .replace(/\s+/g,'');
+    const chunks = (t.match(/[\u3040-\u30FF\u4E00-\u9FFFー]{2,}/g) || [])
+      .map(s=>s.trim())
+      .filter(Boolean);
+    // unique + longest first
+    const seen = new Set();
+    const uniq = [];
+    for(const c of chunks){
+      const n = normalizeJa(c);
+      if(!n || seen.has(n)) continue;
+      seen.add(n);
+      uniq.push(c);
+    }
+    uniq.sort((a,b)=>b.length-a.length);
+    return uniq.slice(0, 6);
+  }
+
+  async function ocrRegion(frameCanvas, region){
+    if(!ocrReady) return {raw:"", conf:0};
+    const W = frameCanvas.width, H = frameCanvas.height;
+    const r = rectClamp(region, W, H);
+
+    // scale-up: small text tolerance
+    const scaleUp = (r.h < 220) ? 4 : (r.h < 340 ? 3 : 2);
+    const maxW = 1400;
+    const maxH = 520;
+    const tw = Math.min(maxW, Math.max(320, Math.floor(r.w * scaleUp)));
+    const th = Math.min(maxH, Math.max(180, Math.floor(r.h * scaleUp)));
+    _roi.width = tw; _roi.height = th;
+    const rctx = _roi.getContext('2d', {willReadFrequently:true});
+    rctx.imageSmoothingEnabled = false;
+    rctx.drawImage(frameCanvas, r.x, r.y, r.w, r.h, 0, 0, tw, th);
+    const pre = preprocessForOcr(_roi);
+    const res = await ocrWorker.recognize(pre);
+    const raw = (res && res.data && res.data.text) ? res.data.text : "";
+    const conf = (res && res.data && typeof res.data.confidence === 'number') ? (res.data.confidence/100) : 0;
+    return {raw, conf};
+  }
+
   function findHpBarRect(img, w, h){
     // returns {x,y,w,h} in this downscaled image coordinates
     // Heuristic: find the longest horizontal run of green pixels.
@@ -455,153 +546,118 @@ function preprocessForOcr(srcCanvas){
   }
 
   async function detectOnce(){
+    if(detecting) return;
+    detecting = true;
+    try{
     if(!video.videoWidth || !video.videoHeight) return;
     await loadDex();
 
-    // Capture current frame
     const W = video.videoWidth, H = video.videoHeight;
-    const frame = document.createElement('canvas');
-    frame.width = W; frame.height = H;
-    const fctx = frame.getContext('2d', {willReadFrequently:true});
+    _frame.width = W; _frame.height = H;
+    const fctx = _frame.getContext('2d', {willReadFrequently:true});
     fctx.drawImage(video, 0, 0, W, H);
 
-    // Detect active game picture area (letterbox / borders tolerant)
-const gameRect = detectGameRectFromFrame(frame);
-
-// Search rect (primary): top-right inside the detected game area
-let roi = {
-  x: Math.floor(gameRect.x + gameRect.w * 0.55),
-  y: Math.floor(gameRect.y + gameRect.h * 0.03),
-  w: Math.floor(gameRect.w * 0.44),
-  h: Math.floor(gameRect.h * 0.32)
-};
-roi.x = clamp(roi.x, 0, W-1);
-roi.y = clamp(roi.y, 0, H-1);
-roi.w = clamp(roi.w, 60, W);
-roi.h = clamp(roi.h, 60, H);
-if(roi.x + roi.w > W) roi.w = W - roi.x;
-if(roi.y + roi.h > H) roi.h = H - roi.y;
-
-function searchHpIn(rect, sw){
-  const smallW = sw || 360;
-  const smallH = Math.max(1, Math.round(smallW * (rect.h/rect.w)));
-  const small = document.createElement('canvas');
-  small.width = smallW; small.height = smallH;
-  const sctx = small.getContext('2d', {willReadFrequently:true});
-  sctx.drawImage(frame, rect.x, rect.y, rect.w, rect.h, 0, 0, smallW, smallH);
-  const img = sctx.getImageData(0,0,smallW,smallH);
-  const hp = findHpBarRect(img, smallW, smallH);
-  if(!hp) return null;
-  const scaleX = rect.w / smallW;
-  const scaleY = rect.h / smallH;
-  return {
-    x: rect.x + Math.floor(hp.x * scaleX),
-    y: rect.y + Math.floor(hp.y * scaleY),
-    w: Math.floor(hp.w * scaleX),
-    h: Math.floor(hp.h * scaleY)
-  };
-}
-
-let hpFull = searchHpIn(roi, 360);
-let usedRoi = roi;
-
-// Fallback: search wider area (top portion of the detected game area)
-if(!hpFull){
-  const wide = {
-    x: gameRect.x,
-    y: gameRect.y,
-    w: gameRect.w,
-    h: Math.max(1, Math.floor(gameRect.h * 0.58))
-  };
-  hpFull = searchHpIn(wide, 520);
-  usedRoi = wide;
-}
-
-
-    if(!hpFull){
+    if(!chkOcr.checked){
       drawOverlay([]);
       nameEl.textContent = '-';
-      confEl.textContent = 'HPバー検出なし（画面右上にHPが出る場面で試してください）';
-      rawEl.textContent = '';
+      confEl.textContent = '判定できません（OCRをONにしてください）';
+      rawEl.textContent = '（OCR OFF）';
       btnAddParty.disabled = true;
       return;
     }
 
-    // Name crop: expand around bar to include the name text (usually above/left of bar)
-    const crop = {
-      x: clamp(Math.floor(hpFull.x - hpFull.w*0.65), 0, W-1),
-      y: clamp(Math.floor(hpFull.y - hpFull.h*7.5), 0, H-1),
-      w: clamp(Math.floor(hpFull.w*1.75), 40, W),
-      h: clamp(Math.floor(hpFull.h*9.5), 32, H)
-    };
-    if(crop.x + crop.w > W) crop.w = W - crop.x;
-    if(crop.y + crop.h > H) crop.h = H - crop.y;
-
-    drawOverlay([
-      {x: usedRoi.x, y: usedRoi.y, w: usedRoi.w, h: usedRoi.h},
-      {x: hpFull.x, y: hpFull.y, w: hpFull.w, h: Math.max(8,hpFull.h)},
-      {x: crop.x, y: crop.y, w: crop.w, h: crop.h}
-    ]);
-
-    async function ocrFromCrop(scaleUp){
-      const o = document.createElement('canvas');
-      o.width = Math.floor(crop.w * scaleUp);
-      o.height = Math.floor(crop.h * scaleUp);
-      const octx = o.getContext('2d', {willReadFrequently:true});
-      octx.imageSmoothingEnabled = false;
-      octx.drawImage(frame, crop.x, crop.y, crop.w, crop.h, 0, 0, o.width, o.height);
-      const pre = preprocessForOcr(o);
-      const r = await ocrWorker.recognize(pre);
-      return (r && r.data && r.data.text) ? r.data.text : "";
+    await ensureOcr();
+    if(!ocrReady){
+      drawOverlay([]);
+      nameEl.textContent = '-';
+      confEl.textContent = ocrErrorMsg || 'OCRの準備に失敗しました';
+      rawEl.textContent = ocrErrorMsg || '';
+      btnAddParty.disabled = true;
+      return;
     }
 
-    let raw = "";
-    if(chkOcr.checked){
-      await ensureOcr();
-      if(ocrReady){
-        // 1st try: x3
-        raw = await ocrFromCrop(3);
-        // 2nd try: x4（小さい文字対策）
-        if(!normalizeJa(raw)){
-          raw = await ocrFromCrop(4);
-        }
+    const gameRect = detectGameRectFromFrame(_frame);
+    const g = gameRect || {x:0,y:0,w:W,h:H};
+
+    // Candidate regions (fully automatic): try top-right first, then top band.
+    const regions = [
+      rectClamp({
+        x: g.x + g.w*0.50,
+        y: g.y + g.h*0.00,
+        w: g.w*0.50,
+        h: g.h*0.26
+      }, W, H),
+      rectClamp({
+        x: g.x + g.w*0.00,
+        y: g.y + g.h*0.00,
+        w: g.w*1.00,
+        h: g.h*0.30
+      }, W, H)
+    ];
+
+    // Skip OCR if the key region hasn't changed recently and we already have a confident name.
+    const sigNow = quickSignature(fctx, regions[0]);
+    const same = (sigNow.sum === _sig.a && sigNow.edge === _sig.b);
+    const ts = now();
+    if(same && lastName && lastConf >= 0.78 && (ts - _sig.lastAt) < 450){
+      return;
+    }
+    _sig.a = sigNow.sum; _sig.b = sigNow.edge; _sig.lastAt = ts;
+
+    // OCR scan (2-stage)
+    let best = {name:"", score:0, raw:"", conf:0, region: regions[0]};
+    for(let i=0;i<regions.length;i++){
+      const r = regions[i];
+      drawOverlay([{x:r.x,y:r.y,w:r.w,h:r.h}]);
+      const out = await ocrRegion(_frame, r);
+      const raw = out.raw || "";
+      const oconf = out.conf || 0;
+      const cands = extractCandidates(raw);
+
+      // Try matching each candidate token + whole raw text.
+      let localBest = {name:"", score:0};
+      for(const c of cands){
+        const m = bestMatchName(c);
+        if(m.score > localBest.score){ localBest = m; }
       }
+      const mWhole = bestMatchName(raw);
+      if(mWhole.score > localBest.score){ localBest = mWhole; }
+
+      // Combine with OCR confidence (soft).
+      const combined = clamp((localBest.score * 0.85) + (oconf * 0.15), 0, 1);
+      if(combined > best.score){
+        best = {name: localBest.name, score: combined, raw, conf: oconf, region: r};
+      }
+
+      // If we are confident enough, stop early.
+      if(best.name && best.score >= 0.80) break;
     }
 
-    // If OCR off, try a simple heuristic by reading pixels of the name region? (not reliable)
-    if(!raw){
-      raw = '';
-    }
-
-    lastRaw = raw;
+    lastRaw = best.raw || "";
     if(ocrErrorMsg){
       rawEl.textContent = ocrErrorMsg;
-    }else if(!chkOcr.checked){
-      rawEl.textContent = '（OCR OFF）';
-    }else if(!normalizeJa(raw)){
-      rawEl.textContent = '（OCR結果なし）';
+    }else if(!normalizeJa(lastRaw)){
+      rawEl.textContent = '（OCR ON / 文字検出なし）';
     }else{
-      rawEl.textContent = `OCR: ${raw.replace(/\n+/g,' / ')}`;
+      rawEl.textContent = `OCR: ${(lastRaw||'').replace(/\n+/g,' / ')}`;
     }
 
-    const extracted = extractNameCandidate(raw);
-    const {name, score} = bestMatchName(extracted || raw);
-    lastName = name;
-    lastConf = score;
-
-    if(name){
-      nameEl.textContent = name;
-      confEl.textContent = `一致度: ${Math.round(score*100)}%`;
-      setActive(name);
+    if(best.name && best.score >= 0.78){
+      lastName = best.name;
+      lastConf = best.score;
+      nameEl.textContent = best.name;
+      confEl.textContent = `一致度: ${Math.round(best.score*100)}%`;
+      setActive(best.name);
       btnAddParty.disabled = false;
     }else{
+      lastName = "";
+      lastConf = 0;
       nameEl.textContent = '-';
-      confEl.textContent = ocrErrorMsg
-        ? ocrErrorMsg
-        : chkOcr.checked
-          ? '判定できません（相手名の文字が読み取れません。右上に相手名が出ている場面で試してください）'
-          : '判定できません（OCRをONにしてください）';
+      confEl.textContent = '判定できません（OCRは動作中ですが、名前が確定できません）';
       btnAddParty.disabled = true;
+    }
+    }finally{
+      detecting = false;
     }
   }
 
@@ -692,7 +748,7 @@ if(!hpFull){
       btnStart.disabled = true;
       setTimeout(()=>drawOverlay([]), 200);
       if(chkAuto.checked){
-        tickTimer = setInterval(()=>detectOnce().catch(console.error), 2000);
+        tickTimer = setInterval(()=>detectOnce().catch(console.error), 600);
       }
     }catch(err){
       console.error(err);
@@ -740,7 +796,7 @@ if(!hpFull){
   });
   chkAuto.addEventListener('change', ()=>{
     if(chkAuto.checked){
-      if(stream && !tickTimer) tickTimer = setInterval(()=>detectOnce().catch(console.error), 2000);
+      if(stream && !tickTimer) tickTimer = setInterval(()=>detectOnce().catch(console.error), 600);
     }else{
       if(tickTimer){ clearInterval(tickTimer); tickTimer=null; }
     }
