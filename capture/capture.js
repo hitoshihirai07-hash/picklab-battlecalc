@@ -229,16 +229,44 @@
         s.onerror = () => reject(new Error('tesseract load failed'));
         document.head.appendChild(s);
       });
-      ocrWorker = await window.Tesseract.createWorker('jpn', 1, {
-        // best effort: host lang data via jsdelivr package
-        langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/jpn/4.0.0_best/',
-        logger: m => {
+      // Some environments (extensions / filters / corporate networks) can block a specific CDN.
+      // Try multiple mirrors with a timeout so we don't get stuck at "traineddata 0%" forever.
+      const langCandidates = [
+        'https://cdn.jsdelivr.net/npm/@tesseract.js-data/jpn@1.0.0/4.0.0_best_int/',
+        'https://unpkg.com/@tesseract.js-data/jpn@1.0.0/4.0.0_best_int/',
+      ];
+
+      const makeWorker = async (langPath) => {
+        const logger = m => {
           if(m && m.status && typeof m.progress === 'number'){
             const pct = Math.round(m.progress*100);
             confEl.textContent = `${m.status} ${pct}%`;
           }
+        };
+        const p = window.Tesseract.createWorker('jpn', 1, { langPath, logger });
+        const timeoutMs = 20000;
+        let t;
+        const timeout = new Promise((_, rej)=>{ t = setTimeout(()=>rej(new Error('ocr language download timeout')), timeoutMs); });
+        try{
+          return await Promise.race([p, timeout]);
+        }finally{
+          clearTimeout(t);
         }
-      });
+      };
+
+      let lastErr;
+      for(const lp of langCandidates){
+        try{
+          ocrWorker = await makeWorker(lp);
+          break;
+        }catch(e){
+          lastErr = e;
+          try{ confEl.textContent = 'OCR準備中…（別CDNを試行中）'; }catch(_){ }
+        }
+      }
+      if(!ocrWorker){
+        throw (lastErr || new Error('ocr init failed'));
+      }
       await ocrWorker.setParameters({
         // name is usually one line
         tessedit_pageseg_mode: '7',
