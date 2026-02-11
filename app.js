@@ -2116,6 +2116,84 @@
   const aiBtn = $("#btnAiPage");
   if (aiBtn) aiBtn.addEventListener("click", saveAiStateAndGo);
 
+  // ===== Pick Lab: Capture sync (opponent party) =====
+  // /capture が localStorage に保存した「相手ポケモン名」を右側チームの空欄へ反映します。
+  // 既に入力がある枠は上書きしません。
+  const CAP_ACTIVE = "PICKLAB_CAPTURE_OPP_ACTIVE_V1";
+  const CAP_PARTY  = "PICKLAB_CAPTURE_OPP_PARTY_V1";
+  let __capJaToId = null;
+
+  function __capNormJa(s){
+    return String(s||"")
+      .replace(/[\s　]/g, "")
+      .replace(/[()（）【】\[\]「」『』・….,:;]/g, "")
+      .replace(/[ーｰ―‐－]/g, "ー")
+      .trim();
+  }
+
+  function __capBuildMap(){
+    if(__capJaToId) return;
+    __capJaToId = new Map();
+    for(const opt of (state.speciesOptions||[])){
+      if(!opt || !opt.ja || !opt.id) continue;
+      const k = __capNormJa(opt.ja);
+      if(k && !__capJaToId.has(k)) __capJaToId.set(k, opt.id);
+    }
+  }
+
+  function __capBestId(jaName){
+    const q = __capNormJa(jaName);
+    if(!q) return "";
+    __capBuildMap();
+    if(__capJaToId.has(q)) return __capJaToId.get(q);
+    // fallback: prefix/contains (light)
+    let best = "";
+    for(const [k, id] of __capJaToId.entries()){
+      if(k.startsWith(q) || q.startsWith(k) || k.includes(q) || q.includes(k)){
+        best = id;
+        break;
+      }
+    }
+    return best;
+  }
+
+  function __capReadParty(){
+    try{
+      const v = localStorage.getItem(CAP_PARTY);
+      const arr = v ? JSON.parse(v) : [];
+      return Array.isArray(arr) ? arr : [];
+    }catch(_){
+      return [];
+    }
+  }
+
+  function __capApplyToRightTeam(){
+    if(!state.dexLoaded) return;
+    const party = __capReadParty();
+    if(!party.length) return;
+
+    let changed = false;
+    for(let i=0;i<6;i++){
+      const nm = party[i];
+      if(!nm) continue;
+      const slot = state.teams?.right?.[i];
+      if(!slot) continue;
+      if(slot.speciesId) continue; // do not overwrite
+      const id = __capBestId(nm);
+      if(id){
+        slot.speciesId = id;
+        changed = true;
+      }
+    }
+    if(changed) renderAll();
+  }
+
+  // Apply when dex already loaded (or later)
+  setInterval(__capApplyToRightTeam, 1500);
+  window.addEventListener("storage", (e)=>{
+    if(e.key === CAP_PARTY || e.key === CAP_ACTIVE) __capApplyToRightTeam();
+  });
+
   // initial status
   setStatus("まず「図鑑データ読み込み」を押してください。※新しめの技/特性は、表示時にネット経由で日本語名を自動取得して端末にキャッシュします。");
 })();

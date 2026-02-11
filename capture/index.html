@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Pick Lab キャプチャ連携</title>
+  <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="/assets/manifest.webmanifest" />
+  <meta name="theme-color" content="#ff8a00" />
+  <link rel="stylesheet" href="/style.css?v=20260211" />
+  <link rel="stylesheet" href="./capture.css?v=20260211" />
+</head>
+<body>
+  <header>
+    <h1>Pick Lab キャプチャ連携</h1>
+    <div class="sub">Switch → キャプチャ → 自動判定（相手ポケモン名）</div>
+    <div class="toolbar">
+      <a class="btn" href="/" style="text-decoration:none;">トップ</a>
+      <a class="btn" href="/calc/" style="text-decoration:none;" target="_blank" rel="noopener">ダメージ計算</a>
+      <a class="btn" href="/sim/" style="text-decoration:none;" target="_blank" rel="noopener">シミュ</a>
+    </div>
+  </header>
+
+  <main class="capWrap">
+    <section class="card capCard">
+      <div class="capGrid">
+        <div class="capVideoCol">
+          <div class="capControls">
+            <div class="row" style="gap:10px;flex-wrap:wrap">
+              <label class="small">入力デバイス</label>
+              <select id="capDevice" class="capSelect"></select>
+              <button id="capStart" class="btn-accent" type="button">開始</button>
+              <button id="capStop" class="btn" type="button" disabled>停止</button>
+            </div>
+
+            <div class="row" style="gap:12px;flex-wrap:wrap;margin-top:8px">
+              <label class="checkbox"><input id="capAuto" type="checkbox" checked> 自動判定（2秒おき）</label>
+              <label class="checkbox"><input id="capUseOcr" type="checkbox"> OCR（日本語）を使う</label>
+              <button id="capScanOnce" class="btn" type="button">今すぐ判定</button>
+              <button id="capAddParty" class="btn-green" type="button" disabled>相手パーティに追加</button>
+              <button id="capClear" class="btn-danger" type="button">履歴クリア</button>
+            </div>
+
+            <div class="note small" style="margin-top:8px">
+              まずは <b>OBS Virtual Camera</b> か <b>USB Video</b> みたいな名前のデバイスを選んで開始。<br/>
+              ※ 相手の名前が画面に表示される場面（バトル画面右上など）だと判定できます。
+            </div>
+          </div>
+
+          <div class="capStage">
+            <video id="capVideo" playsinline muted></video>
+            <canvas id="capOverlay"></canvas>
+          </div>
+
+          <div class="capResult">
+            <div class="capResultRow">
+              <div class="badge">現在の相手</div>
+              <div id="capName" class="capName">-</div>
+              <div id="capConf" class="small" style="opacity:.8"></div>
+            </div>
+            <div id="capRaw" class="small capRaw"></div>
+          </div>
+        </div>
+
+        <div class="capSideCol">
+          <div class="panelTitle">
+            <h2>保存された相手パーティ</h2>
+            <div class="small">このリストは自動で <b>ダメージ計算 / シミュ</b> に反映されます（空欄だけ埋めます）。</div>
+          </div>
+          <div id="capParty" class="capParty"></div>
+          <div class="note small" style="margin-top:10px">
+            使い方のイメージ：
+            <ul style="margin:6px 0 0 18px">
+              <li>バトル中に相手ポケモンが出たら、その都度検出 → 自動で一覧に溜まる</li>
+              <li>ダメ計の「防御側6体」や、シミュの「相手側」に空欄へ自動で入る</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="./capture.js?v=20260211"></script>
+</body>
+</html>
