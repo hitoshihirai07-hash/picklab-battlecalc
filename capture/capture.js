@@ -473,25 +473,64 @@
   }
 
   async function start(){
+    confEl.textContent = '';
+    rawEl.textContent = '';
     try{
       if(stream) stop();
-      const deviceId = elDevice.value || undefined;
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: deviceId ? {deviceId:{exact:deviceId}} : true,
-        audio: false
-      });
+
+      // Refresh device list (helps when OBS Virtual Camera starts after page load)
+      await refreshDevices();
+
+      const selectedId = elDevice.value || '';
+      const oneOpt = elDevice.options && elDevice.options.length === 1 ? (elDevice.options[0].textContent||'') : '';
+      const noDevice = (!selectedId) && oneOpt.includes('見つかりません');
+      if(noDevice){
+        confEl.textContent = 'ビデオ入力が見つかりません。キャプチャがPCに認識されているか（Windowsの「カメラ」アプリで映るか）、USB3.0直挿し、またはOBSの「仮想カメラ開始」を確認してください。';
+        return;
+      }
+
+      const tries = [];
+      if(selectedId){
+        // Use ideal (not exact) so it doesn't fail easily when deviceId changes
+        tries.push({ video: { deviceId: { ideal: selectedId } }, audio: false });
+      }
+      // Fallback: any camera
+      tries.push({ video: true, audio: false });
+
+      let lastErr = null;
+      for(const c of tries){
+        try{
+          stream = await navigator.mediaDevices.getUserMedia(c);
+          break;
+        }catch(e){
+          lastErr = e;
+        }
+      }
+      if(!stream) throw lastErr || new Error('getUserMedia failed');
+
       video.srcObject = stream;
       await video.play();
       btnStop.disabled = false;
       btnStart.disabled = true;
-      // Fit overlay size once metadata is ready
       setTimeout(()=>drawOverlay([]), 200);
       if(chkAuto.checked){
         tickTimer = setInterval(()=>detectOnce().catch(console.error), 2000);
       }
     }catch(err){
       console.error(err);
-      confEl.textContent = '開始できません。ブラウザのカメラ許可 / デバイス選択 / OBS仮想カメラを確認してください。';
+      const name = (err && err.name) ? err.name : 'Error';
+      const msg  = (err && err.message) ? err.message : String(err);
+      let hint = '';
+      if(name === 'NotAllowedError' || name === 'SecurityError'){
+        hint = 'カメラ許可がブロックされています。ブラウザのアドレスバー左(鍵)→サイト設定→カメラを「許可」、Windows設定→プライバシー→カメラも確認してください。';
+      }else if(name === 'NotFoundError' || name === 'OverconstrainedError'){
+        hint = '選んだデバイスが見つかりません。OBS Virtual Cameraを開始してから選び直す、または別デバイスを選んでください。';
+      }else if(name === 'NotReadableError'){
+        hint = '別アプリがカメラを掴んでいる可能性があります。Zoom/Teams/Discord/別タブのカメラ使用を閉じて再試行してください。';
+      }else if(name === 'TypeError'){
+        hint = 'HTTPSで開いているか確認してください（Cloudflare Pages上ならOK）。';
+      }
+      confEl.textContent = `開始できません: ${name} / ${msg}${hint ? '。' + hint : ''}`;
     }
   }
   function stop(){
