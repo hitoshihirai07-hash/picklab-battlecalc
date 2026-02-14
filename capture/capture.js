@@ -269,12 +269,16 @@ function setCapStatus(s){ capStatus.textContent = s; }
     return "";
   }
 
-  function loadOppList(){ return []; }
+    function loadOppList(){ return []; }
 
   function saveOppList(){ /* disabled */ }
 
-  function renderOppList(){ /* disabled */ }
-    btnClear.disabled = arr.length === 0;
+  function renderOppList(){
+    // 相手リスト機能は現在無効（UIは hideLogUI で非表示）。
+    // 呼び出し元があるので、落ちないように最低限だけ処理。
+    const arr = loadOppList() || [];
+    if(btnClear) btnClear.disabled = arr.length === 0;
+    if(oppListEl) oppListEl.innerHTML = "";
   }
 
   function saveLast(){ /* disabled */ }
