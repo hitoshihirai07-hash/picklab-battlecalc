@@ -170,7 +170,7 @@
     <section class="card" style="margin-top:12px">
       <div class="panelTitle">
         <h2>4) 相手6匹スナップ（選出画面）</h2>
-        <div class="small muted">この画面のスクショを貼り付け → 6枠を自動で候補表示 → あなたが確定</div>
+        <div class="small muted">選出画面のスクショを貼り付け（右側だけの切り抜き推奨）→ 6枠を切り出し → <b>自動判定</b>で6匹を確定 → 6匹から「今出てる相手」をワンクリックでコピー</div>
       </div>
 
       <div class="team-tools" style="margin-top:10px">
@@ -178,22 +178,7 @@
           <span>画像ファイル</span>
           <input id="teamFile" type="file" accept="image/*" style="max-width:260px">
         </label>
-        <button class="btn" id="btnPasteTeam" type="button">クリップボードから貼り付け</button>
-
-        <span class="pill">
-          <span>候補数</span>
-          <select id="candK">
-            <option value="4">4</option>
-            <option value="6" selected>6</option>
-            <option value="8">8</option>
-            <option value="10">10</option>
-          </select>
-        </span>
-
-        <button class="btn" id="btnBuildIconDb" type="button">アイコンDB作成</button>
-        <span class="mono" id="iconDbStatus" style="font-size:12px;opacity:.85"></span>
-        <span class="mono" id="iconDbProgress" style="font-size:12px;opacity:.85"></span>
-      </div>
+        <button class="btn" id="btnPasteTeam" type="button">クリップボードから貼り付け</button><button class="btn" id="btnTeamRun" type="button">自動判定</button><button class="btn" id="btnCopy6" type="button">6匹をコピー</button><button class="btn" id="btnTeamClear" type="button">クリア</button></div>
 
       <div class="knobs" style="margin-top:10px">
         <span class="pill"><span>ズレX%</span><input id="roiDx" type="number" value="0" step="0.1" style="width:88px"></span>
@@ -204,7 +189,9 @@
 
       <img id="teamPreview" class="team-preview" alt="screenshot preview" style="display:none;margin-top:10px">
 
-      <div id="teamSlots" class="team-grid"></div>
+      
+      <pre id="teamOut" class="small" style="white-space:pre-wrap; margin-top:10px"></pre>
+<div id="teamSlots" class="team-grid"></div>
 
       <div id="teamConfirmed" style="display:none;margin-top:12px">
         <div class="panelTitle" style="margin-bottom:6px">
@@ -231,9 +218,9 @@
         <summary class="muted">使い方メモ</summary>
         <div class="hint" style="margin-top:8px">
           1) 対戦の「選出画面」でスクショ（このページに貼り付け）<br>
-          2) 各枠で候補が出るので、正しいポケモンをクリックして確定<br>
-          3) 6匹確定したら、6匹から「今出てる相手」をクリック → コピーして他ページに貼る<br>
-          ※最初の1回だけ「アイコンDB作成」が必要です（以降はキャッシュされます）
+          2) 「自動判定」を押す（6匹が自動で埋まる）<br>
+          3) 6匹のどれかをクリック → 「現在の相手」がセットされる → コピーして他ページに貼る<br>
+          ※うまく取れない枠は「?」になります（誤判定より安全）
         </div>
       </details>
     </section>
