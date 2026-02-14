@@ -38,9 +38,22 @@
 
   // ---- Config (PokéSprite Gen8) ----
   const SPRITE = {
-    version: 'pokesprite_gen8_v1',
-    cssUrl: 'https://cdn.jsdelivr.net/npm/pokesprite-spritesheet@0.1.0/pokesprite-pokemon-gen8.css',
-    imgUrl: 'https://cdn.jsdelivr.net/npm/pokesprite-spritesheet@0.1.0/pokesprite-pokemon-gen8.png',
+    version: 'pokesprite_gen8_v2',
+    // We'll resolve a working mirror at runtime (CORS + availability)
+    fileCss: 'pokesprite-pokemon-gen8.css',
+    fileImg: 'pokesprite-pokemon-gen8.png',
+    bases: [
+      'https://msikma.github.io/pokesprite-spritesheet/',
+      'https://raw.githubusercontent.com/msikma/pokesprite-spritesheet/master/docs/',
+      'https://raw.githubusercontent.com/msikma/pokesprite-spritesheet/master/',
+      'https://cdn.jsdelivr.net/npm/pokesprite-spritesheet@0.1.0/',
+      'https://unpkg.com/pokesprite-spritesheet@0.1.0/',
+      './',                // if you add the files locally later
+      './pokesprite/',     // optional local folder
+    ],
+    // resolved at runtime
+    cssUrl: '',
+    imgUrl: '',
     tileW: 68,
     tileH: 56,
   };
@@ -88,6 +101,38 @@
     }
   }
   function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+
+  // ---- sprite assets resolver (avoid CORS/404 issues) ----
+  let spriteReady = null; // {cssText, sheet, cssUrl, imgUrl}
+  async function ensureSpriteReady(){
+    if(spriteReady) return spriteReady;
+
+    const errs = [];
+    for(const base of (SPRITE.bases || [])){
+      const cssUrl = base + SPRITE.fileCss;
+      const imgUrl = base + SPRITE.fileImg;
+      try{
+        const cssRes = await fetch(cssUrl, {cache:'force-cache'});
+        if(!cssRes.ok) throw new Error('CSS HTTP ' + cssRes.status);
+        const cssText = await cssRes.text();
+
+        // Try to load sheet (also validates CORS)
+        const sheet = await imageFromSrc(imgUrl);
+
+        // Record resolved urls for later (CSS injection replaces relative url(...) using SPRITE.imgUrl)
+        SPRITE.cssUrl = cssUrl;
+        SPRITE.imgUrl = imgUrl;
+
+        injectPokeSpriteCSS(cssText);
+        spriteReady = {cssText, sheet, cssUrl, imgUrl};
+        return spriteReady;
+      }catch(e){
+        errs.push(`${cssUrl} -> ${e?.message || e}`);
+      }
+    }
+    throw new Error('参照スプライト取得に失敗しました（ブロック/404の可能性）\n' + errs.slice(0,4).join('\n'));
+  }
 
   function roiParams(){
     const dx = parseFloat(dxEl?.value || '0') || 0; // percent
@@ -310,19 +355,19 @@
       const raw = JSON.parse(localStorage.getItem(LS_HASHDB) || 'null');
       if(!force && meta && meta.version === SPRITE.version && Array.isArray(raw) && raw.length > 200){
         hashDB = raw.map(o=>({slug:o.slug, h: BigInt('0x' + o.h)}));
+        // For UI previews only (non-fatal if blocked)
+        ensureSpriteReady().catch(()=>{});
         return hashDB;
       }
     }catch(e){ /* ignore */ }
 
     setStatus('参照スプライト読込中…（初回のみ）');
-    const cssRes = await fetch(SPRITE.cssUrl, {cache:'force-cache'});
-    if(!cssRes.ok) throw new Error('参照CSS取得に失敗しました');
-    const cssText = await cssRes.text();
-    injectPokeSpriteCSS(cssText);
+    const assets = await ensureSpriteReady();
+    const cssText = assets.cssText;
     const posMap = parseCSSPositions(cssText);
     if(posMap.size < 200) throw new Error('CSS解析に失敗しました（positionsが少ない）');
 
-    const sheet = await imageFromSrc(SPRITE.imgUrl);
+    const sheet = assets.sheet;
 
     setStatus('参照DB作成中…（初回のみ）');
     const tiny = document.createElement('canvas');
