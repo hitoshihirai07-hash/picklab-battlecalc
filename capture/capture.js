@@ -1,6 +1,7 @@
-/* Pick Lab - Capture Assist (fixed ROI, no scanning)
+/* Pick Lab - Capture Assist (snapshot, fixed ROI)
    - Fixed ROI (right-top name area) based on 1920x1080 layout
    - No orange lines / no auto-moving UI
+   - Manual snapshot OCR (no continuous scanning)
    - Keep last stable result (never snap back to 0)
    - Save to localStorage: picklab_capture_last + picklab_capture_opponents
 */
@@ -10,6 +11,7 @@
   const elDevice = $("capDevice");
   const btnStart = $("btnStart");
   const btnStop  = $("btnStop");
+  const btnSnap  = $("btnSnap");
   const capStatus = $("capStatus");
   const ocrStatus = $("ocrStatus");
 
@@ -40,9 +42,16 @@
   };
 
   // OCR pacing
-  const OCR_INTERVAL_MS = 350;    // light + responsive
+  const OCR_INTERVAL_MS = 260;    // responsive
   const HASH_STEP = 6;            // sampling step for hash (performance)
-  const STABLE_NEED = 2;          // consecutive same => accept
+
+  // Stability (anti-flicker)
+  // - Initial detect: require STABLE_NEED consecutive same matches
+  // - Switching to another name: require SWITCH_NEED consecutive same matches
+  // This avoids flicker even when OCR confidence is unstable.
+  const STABLE_NEED = 2;
+  const SWITCH_NEED = 3;
+  const HOLD_MS = 900;            // keep current stable for a short time
 
   // localStorage keys
   const LS_LAST = "picklab_capture_last";
@@ -50,18 +59,27 @@
 
   let stream = null;
 
-  // OCR Worker
+  
+let obsStream = null;
+let plSrcMode = 'cam';
+// OCR Worker
   let ocrWorker = null;
   let ocrReady = false;
   let ocrLoading = false;
 
   // Dex cache
   let dexNames = []; // [{ja, norm}]
+  let dexEnNames = []; // [{en, ja}]
+  let dexEnMap = new Map();
+  let dexEnIndex = new Map();
+  let dexDisplay = new Map(); // norm -> display (ja)
   let dexReady = false;
 
   // Stability
   let stableName = "";
   let stableConf = 0;
+  let stableHoldUntil = 0;
+
   let pendingName = "";
   let pendingCount = 0;
 
@@ -71,8 +89,65 @@
   let lastHash = 0;
   let busy = false;
 
-  // -------- helpers --------
-  function setCapStatus(s){ capStatus.textContent = s; }
+  
+function hideLogUI(){
+  try{
+    if(oppListEl){
+      // hide whole list area
+      const box = oppListEl.parentElement;
+      if(box) box.style.display = "none";
+      else oppListEl.style.display = "none";
+    }
+    if(btnClear){ btnClear.style.display='none'; btnClear.disabled=true; }
+    if(rawTextEl){
+      const pill = rawTextEl.closest(".pill");
+      if(pill) pill.style.display = "none";
+      else rawTextEl.style.display = "none";
+    }
+  }catch(e){}
+}
+
+// -------- helpers --------
+function setCapStatus(s){ capStatus.textContent = s; }
+
+  function displayOf(norm){
+    if(!norm) return "";
+    return dexDisplay.get(norm) || norm;
+  }
+
+  function consumeMatch(name, conf, now){
+    if(!name) return;
+
+    // Same as current stable -> refresh hold
+    if(stableName && name === stableName){
+      stableHoldUntil = now + HOLD_MS;
+      if(typeof conf === "number" && conf > 0) stableConf = conf;
+      detName.textContent = displayOf(stableName) || "—";
+      detConf.textContent = stableName ? String(Math.round(stableConf||0)) : "—";
+      pendingName = "";
+      pendingCount = 0;
+      return;
+    }
+
+    // Hold current stable name briefly to avoid flicker
+    if(stableName && now < stableHoldUntil){
+      if(name === pendingName) pendingCount++;
+      else { pendingName = name; pendingCount = 1; }
+      return;
+    }
+
+    if(name === pendingName) pendingCount++;
+    else { pendingName = name; pendingCount = 1; }
+
+    const need = stableName ? SWITCH_NEED : STABLE_NEED;
+    if(pendingCount >= need){
+      setStable(pendingName, conf);
+      pendingName = "";
+      pendingCount = 0;
+    }
+  }
+
+
   function setOcrStatus(s){ ocrStatus.textContent = s; }
 
   function normalizeName(s){
@@ -89,6 +164,27 @@
     // unify X/Y letters
     s = s.replace(/[ｘＸ]/g, "X").replace(/[ｙＹ]/g, "Y");
     return s;
+  }
+
+  function normalizeEn(s){
+    if(!s) return "";
+    s = String(s).trim().toLowerCase();
+    // common symbols -> ascii
+    s = s.replace(/♀/g, "f").replace(/♂/g, "m");
+    // remove accents (best-effort)
+    try{ s = s.normalize('NFKD').replace(/\p{Diacritic}/gu, ''); }catch(e){}
+    // keep only [a-z0-9]
+    s = s.replace(/[^a-z0-9]/g, "");
+    return s;
+  }
+
+  function extractEnglish(text){
+    const t = String(text || "");
+    // longest latin chunk
+    const m = t.match(/[A-Za-z][A-Za-z'\.\-\s]{2,}/g);
+    if(!m) return "";
+    m.sort((a,b)=>b.length-a.length);
+    return m[0] || "";
   }
 
   function extractKatakana(text){
@@ -121,60 +217,67 @@
   }
 
   function bestMatchName(raw){
-    const cand = extractKatakana(raw) || normalizeName(raw);
-    const cn = normalizeName(cand);
-    if(!cn || !dexReady) return "";
-    if(dexSet.has(cn)) return cn;
+    if(!dexReady) return "";
 
-    // narrow by first char to keep it fast
-    const first = cn[0];
-    let best = "";
-    let bestD = 999;
-
-    for(const it of dexNames){
-      if(it.norm[0] !== first) continue;
-      const d = editDistance(cn, it.norm);
-      if(d < bestD){
-        bestD = d;
-        best = it.norm;
-        if(bestD === 0) break;
+    // 1) Japanese (Katakana)
+    const jaChunk = extractKatakana(raw);
+    if(jaChunk){
+      const cn = normalizeName(jaChunk);
+      if(cn){
+        if(dexSet.has(cn)) return cn;
+        const first = cn[0];
+        let best = "";
+        let bestD = 999;
+        for(const it of dexNames){
+          if(it.norm[0] !== first) continue;
+          const d = editDistance(cn, it.norm);
+          if(d < bestD){
+            bestD = d;
+            best = it.norm;
+            if(bestD === 0) break;
+          }
+        }
+        if(best && bestD <= 2) return best;
       }
     }
-    // accept only if close enough
-    if(best && bestD <= 2) return best;
+
+    // 2) English
+    const enChunk = extractEnglish(raw) || raw;
+    const en = normalizeEn(enChunk);
+    if(en){
+      const direct = dexEnMap.get(en);
+      if(direct) return direct;
+      const first = en[0];
+      const pool = dexEnIndex.get(first) || dexEnNames;
+      let best = null;
+      let bestD = 999;
+      for(const it of pool){
+        if(!it || !it.en) continue;
+        const d = editDistance(en, it.en);
+        if(d < bestD){
+          bestD = d;
+          best = it;
+          if(bestD === 0) break;
+        }
+      }
+      if(best && bestD <= 2) return best.ja;
+    }
+
+    // fallback: try raw as Japanese (if OCR missed katakana extraction)
+    const cn2 = normalizeName(raw);
+    if(cn2 && dexSet && dexSet.has(cn2)) return cn2;
     return "";
   }
 
-  function loadOppList(){
-    try{
-      const raw = localStorage.getItem(LS_OPP);
-      const arr = raw ? JSON.parse(raw) : [];
-      if(Array.isArray(arr)) return arr.filter(Boolean);
-    }catch(e){}
-    return [];
-  }
+  function loadOppList(){ return []; }
 
-  function saveOppList(arr){
-    try{ localStorage.setItem(LS_OPP, JSON.stringify(arr)); }catch(e){}
-  }
+  function saveOppList(){ /* disabled */ }
 
-  function renderOppList(){
-    const arr = loadOppList();
-    oppListEl.innerHTML = "";
-    for(const name of arr){
-      const span = document.createElement("span");
-      span.className = "chip";
-      span.textContent = name;
-      oppListEl.appendChild(span);
-    }
+  function renderOppList(){ /* disabled */ }
     btnClear.disabled = arr.length === 0;
   }
 
-  function saveLast(name, conf){
-    try{
-      localStorage.setItem(LS_LAST, JSON.stringify({ name, conf, t: Date.now() }));
-    }catch(e){}
-  }
+  function saveLast(){ /* disabled */ }
 
   function loadLast(){
     try{
@@ -188,20 +291,23 @@
 
   function setStable(name, conf){
     stableName = name || "";
-    stableConf = typeof conf === "number" ? conf : 0;
-    detName.textContent = stableName || "—";
-    detConf.textContent = stableName ? String(Math.round(stableConf)) : "—";
+    if(typeof conf === "number" && conf > 0) stableConf = conf;
+    else if(!stableName) stableConf = 0;
+    stableHoldUntil = Date.now() + HOLD_MS;
+
+    detName.textContent = displayOf(stableName) || "—";
+    detConf.textContent = stableName ? String(Math.round(stableConf||0)) : "—";
     btnCopy.disabled = !stableName;
-    if(stableName){
-      saveLast(stableName, stableConf);
-      // auto add to list (unique)
-      const arr = loadOppList();
-      if(!arr.includes(stableName)){
-        arr.push(stableName);
-        saveOppList(arr);
-        renderOppList();
+
+    // 固定表示（次を押すまで変えない）
+    try{
+      if(stableName){
+        setLockedName(displayOf(stableName) || stableName);
       }
-    }
+    }catch(e){}
+  }
+
+
   }
 
   // simple image hash (sampling)
@@ -216,24 +322,79 @@
 
   async function ensureDex(){
     if(dexReady) return;
+
+    const candidates = [
+      "../dex/jp/POKEMON_ALL.json",
+      "../../dex/jp/POKEMON_ALL.json",
+      "/dex/jp/POKEMON_ALL.json",
+      "dex/jp/POKEMON_ALL.json",
+    ];
+
+    async function tryLoad(url){
+      try{
+        const res = await fetch(url, { cache: "no-store" });
+        if(!res.ok) return null;
+        const ct = (res.headers.get("content-type") || "").toLowerCase();
+        const txt = await res.text();
+        const s = (txt || "").trim();
+        // avoid HTML fallback (index.html etc)
+        if(s.startsWith("<")) return null;
+        if(!s.startsWith("[") && ct.indexOf("json") === -1) return null;
+        const arr = JSON.parse(s);
+        if(Array.isArray(arr) && arr.length) return arr;
+      }catch(e){}
+      return null;
+    }
+
     try{
-      // Use same dex JSON already in Pick Lab repo
-      const res = await fetch("../dex/jp/POKEMON_ALL.json", { cache: "force-cache" });
-      const arr = await res.json();
-      dexNames = [];
-      for(const it of arr){
-        const ja = it.yakkuncom_name || it.pokeapi_species_name_ja || it.pokeapi_form_name_ja || "";
-        if(!ja) continue;
-        const norm = normalizeName(ja);
-        if(!norm) continue;
-        dexNames.push({ ja, norm });
+      let arr = null;
+      for(const u of candidates){
+        arr = await tryLoad(u);
+        if(arr) break;
       }
-      // create set
+      if(!arr) throw new Error("dex json not found");
+
+      dexNames = [];
+      dexEnNames = [];
+      dexEnMap = new Map();
+      dexEnIndex = new Map();
+      dexDisplay = new Map();
+
+      for(const it of arr){
+        const ja = it.yakkuncom_form_name || it.yakkuncom_name || it.pokeapi_form_name_ja || it.pokeapi_species_name_ja || it.pokeapi_form_name_ja || "";
+        if(ja){
+          const jaNorm = normalizeName(ja);
+          if(jaNorm){
+            dexNames.push({ ja, norm: jaNorm });
+            if(!dexDisplay.has(jaNorm)) dexDisplay.set(jaNorm, ja);
+          }
+        }
+        // English (best-effort): if present, map to Japanese
+        const enRaw = it.pokeapi_species_name_en || it.pokeapi_form_name_en || it.yakkuncom_name_en || it.yakkuncom_form_name_en || it.showdown_name_en || "";
+        if(enRaw && ja){
+          const enNorm = normalizeEn(enRaw);
+          const jaNorm = normalizeName(ja);
+          if(enNorm && jaNorm){
+            if(!dexEnMap.has(enNorm)) dexEnMap.set(enNorm, jaNorm);
+            dexEnNames.push({ en: enNorm, ja: jaNorm });
+          }
+        }
+      }
+
       dexSet = new Set(dexNames.map(x=>x.norm));
+      for(const it of dexEnNames){
+        const c = it.en[0];
+        if(!c) continue;
+        if(!dexEnIndex.has(c)) dexEnIndex.set(c, []);
+        dexEnIndex.get(c).push(it);
+      }
+
       dexReady = true;
+      // update badge
+      if(ocrReady) setOcrStatus("OK / DEX OK");
     }catch(e){
-      // keep dexReady false; OCR will still run but matching will be weaker
       dexReady = false;
+      if(ocrReady) setOcrStatus("OK / DEX NG");
     }
   }
 
@@ -254,47 +415,59 @@
     ocrLoading = true;
     setOcrStatus("準備中…");
 
+    const logger = (m) => {
+      if(m && m.status && typeof m.progress === "number"){
+        const pct = Math.round(m.progress * 100);
+        setOcrStatus(`${m.status} ${pct}%`);
+      }
+    };
+
+    const makeWorker = async (lang, langPath) => {
+      const p = window.Tesseract.createWorker(lang, 1, { langPath, logger });
+      const timeoutMs = 25000;
+      const timeout = new Promise((_, rej) => setTimeout(()=>rej(new Error("OCR init timeout")), timeoutMs));
+      return await Promise.race([p, timeout]);
+    };
+
     try{
       await ensureTesseract();
       await ensureDex();
 
-      const langPaths = [
-        "https://cdn.jsdelivr.net/npm/@tesseract.js-data/jpn@1.0.0/4.0.0_best_int/",
-        "https://unpkg.com/@tesseract.js-data/jpn@1.0.0/4.0.0_best_int/",
-      ];
+      // Prefer local tessdata (works for static sites / Electron)
+      const localLangPath = new URL("./tespdata/", location.href).toString();
 
-      const makeWorker = async (langPath) => {
-        const logger = (m) => {
-          if(m && m.status && typeof m.progress === "number"){
-            const pct = Math.round(m.progress * 100);
-            setOcrStatus(`${m.status} ${pct}%`);
+      try{
+        ocrWorker = await makeWorker("jpn+eng", localLangPath);
+        ocrReady = true;
+        setOcrStatus("OK" + (dexReady ? " / DEX OK" : " / DEX NG"));
+      }catch(eLocal){
+        // Fallback: remote Japanese only (English requires eng.traineddata locally)
+        const remotePaths = [
+          "https://cdn.jsdelivr.net/npm/@tesseract.js-data/jpn@1.0.0/4.0.0_best_int/",
+          "https://unpkg.com/@tesseract.js-data/jpn@1.0.0/4.0.0_best_int/",
+        ];
+        let lastErr = eLocal;
+        for(const p of remotePaths){
+          try{
+            ocrWorker = await makeWorker("jpn", p);
+            ocrReady = true;
+            setOcrStatus("OK" + (dexReady ? " / DEX OK" : " / DEX NG"));
+            lastErr = null;
+            break;
+          }catch(e2){
+            lastErr = e2;
           }
-        };
-        // createWorker(lang, numWorkers, { langPath, logger })
-        const p = window.Tesseract.createWorker("jpn", 1, { langPath, logger });
-        // avoid infinite wait if blocked
-        const timeoutMs = 25000;
-        const timeout = new Promise((_,rej)=>setTimeout(()=>rej(new Error("OCR download timeout")), timeoutMs));
-        return await Promise.race([p, timeout]);
-      };
-
-      let lastErr = null;
-      for(const p of langPaths){
-        try{
-          ocrWorker = await makeWorker(p);
-          ocrReady = true;
-          setOcrStatus("OK");
-          break;
-        }catch(e){
-          lastErr = e;
         }
+        if(!ocrReady) throw lastErr;
       }
-      if(!ocrReady) throw lastErr || new Error("OCR init failed");
-
     }catch(e){
-      setOcrStatus("NG");
       console.error(e);
-      alert("OCRが準備できませんでした。ネットワーク制限 or ブロックの可能性があります。");
+      setOcrStatus("NG");
+      alert(
+        "OCRが準備できませんでした。\n" +
+        "※ページを再読み込みし、ブラウザの拡張/広告ブロック等も確認してください。\n" +
+        "（静的ホストの場合は /capture/tespdata/ に traineddata が必要です）"
+      );
     }finally{
       ocrLoading = false;
     }
@@ -310,6 +483,9 @@
     }
 
     const devices = await navigator.mediaDevices.enumerateDevices();
+
+// Auto-select OBS Virtual Camera if available
+try { await tryAutoSelectObsVirtualCam(deviceSelect || selDevice || document.getElementById('deviceSelect') || document.getElementById('selDevice')); } catch(e) {}
     const vids = devices.filter(d => d.kind === "videoinput");
 
     elDevice.innerHTML = "";
@@ -359,7 +535,8 @@
       }
       renderOppList();
 
-      startLoop();
+      // Snapshot mode: do not start auto OCR loop
+      btnSnap.disabled = false;
 
     }catch(e){
       console.error(e);
@@ -384,6 +561,7 @@
     video.srcObject = null;
     btnStart.disabled = false;
     btnStop.disabled = true;
+    if(btnSnap) btnSnap.disabled = true;
     setCapStatus("停止");
     busy = false;
   }
@@ -392,7 +570,8 @@
     if(loopTimer) clearInterval(loopTimer);
     lastHash = 0;
     busy = false;
-    loopTimer = setInterval(tick, 120); // quick check; OCR is throttled by OCR_INTERVAL_MS
+    loopTimer = // (disabled) auto interval removed for stability
+// quick check; OCR is throttled by OCR_INTERVAL_MS
   }
 
   async function tick(){
@@ -404,6 +583,7 @@
 
     const vw = video.videoWidth || 0;
     const vh = video.videoHeight || 0;
+    try{ updateRoiInfo(); }catch(e){}
     if(vw < 320 || vh < 240) return;
 
     // draw full frame
@@ -439,28 +619,17 @@
       rawTextEl.textContent = normalizeName(text).slice(0, 80) || "—";
 
       const matched = bestMatchName(text);
+      const now = Date.now();
 
-      // if not matched, do nothing (keep stable)
       if(matched){
-        if(matched === stableName){
-          pendingName = "";
-          pendingCount = 0;
-          // refresh conf lightly
-          stableConf = Math.max(stableConf, conf);
-          detConf.textContent = String(Math.round(stableConf));
-          saveLast(stableName, stableConf);
-        }else{
-          if(matched !== pendingName){
-            pendingName = matched;
-            pendingCount = 1;
-          }else{
-            pendingCount++;
-          }
-          if(pendingCount >= STABLE_NEED){
-            pendingName = "";
-            pendingCount = 0;
-            setStable(matched, conf);
-          }
+        // Feed stability voter
+        consumeMatch(matched, conf, now);
+      }else{
+        // No match this frame: do NOT clear stable (avoid annoying flicker)
+        if(!stableName){
+          detName.textContent = "—";
+          detConf.textContent = "—";
+          btnCopy.disabled = true;
         }
       }
     }catch(e){
@@ -472,18 +641,101 @@
     }
   }
 
-  // -------- UI wiring --------
+  
+  // Snapshot OCR (manual trigger)
+  async function snapshotOnce(){
+    if(!stream){
+      alert("先に「開始」を押してください。");
+      return;
+    }
+    if(!ocrReady || !ocrWorker){
+      await ensureOCR();
+    }
+    if(!ocrReady || !ocrWorker) return;
+    if(busy) return;
+
+    const vw = video.videoWidth || 0;
+    const vh = video.videoHeight || 0;
+    if(vw < 320 || vh < 240){
+      alert("映像の解像度が取得できません。少し待ってから再実行してください。");
+      return;
+    }
+
+    // draw full frame
+    fullCanvas.width = vw;
+    fullCanvas.height = vh;
+    fullCtx.drawImage(video, 0, 0, vw, vh);
+
+    const rx = Math.floor(vw * ROI.x);
+    const ry = Math.floor(vh * ROI.y);
+    const rw = Math.floor(vw * ROI.w);
+    const rh = Math.floor(vh * ROI.h);
+
+    roiCanvas.width = rw;
+    roiCanvas.height = rh;
+    roiCtx.drawImage(fullCanvas, rx, ry, rw, rh, 0, 0, rw, rh);
+
+    busy = true;
+    try{
+      setOcrStatus("認識中…");
+      const res = await ocrWorker.recognize(roiCanvas);
+      const text = (res && res.data && res.data.text) ? res.data.text : "";
+      const conf = (res && res.data && typeof res.data.confidence === "number") ? res.data.confidence : 0;
+
+      rawTextEl.textContent = normalizeName(text).slice(0, 80) || "—";
+
+      const matched = bestMatchName(text);
+      if(matched){
+        // Directly set stable (manual snapshot -> no flicker)
+        setStable(matched, conf || stableConf || 0);
+        setOcrStatus("OK" + (dexReady ? " / DEX OK" : " / DEX NG"));
+      }else{
+        // Keep previous stable; just show hint
+        setOcrStatus("未検出" + (dexReady ? " / DEX OK" : " / DEX NG"));
+      }
+    }catch(e){
+      console.error(e);
+      setOcrStatus("NG");
+    }finally{
+      busy = false;
+    }
+  }
+
+// -------- UI wiring --------
+try{ hideLogUI(); }catch(e){}
+try{ hookLockButtons(); }catch(e){}
+try{ hookRoiButton(); }catch(e){}
+
   btnStart.addEventListener("click", startCapture);
   btnStop.addEventListener("click", stopCapture);
+  
+
+// Source mode controls (Camera / OBS Screen Share)
+if (srcModeCam && srcModeObs) {
+  srcModeCam.addEventListener('change', () => { if (srcModeCam.checked) setSrcMode('cam'); });
+  srcModeObs.addEventListener('change', () => { if (srcModeObs.checked) setSrcMode('obs'); });
+}
+if (btnStartObs) {
+  btnStartObs.addEventListener('click', async () => {
+    try {
+      // video element variable name varies; try common ones
+      const v = video || videoEl || document.querySelector('video');
+      if (!v) return;
+      await startObsShare(v);
+    } catch(e) {}
+  });
+}
+
+if(btnSnap) btnSnap.addEventListener("click", snapshotOnce);
 
   btnCopy.addEventListener("click", async () => {
     if(!stableName) return;
     try{
-      await navigator.clipboard.writeText(stableName);
+      await navigator.clipboard.writeText(displayOf(stableName) || stableName);
     }catch(e){
       // fallback
       const ta = document.createElement("textarea");
-      ta.value = stableName;
+      ta.value = displayOf(stableName) || stableName;
       document.body.appendChild(ta);
       ta.select();
       document.execCommand("copy");
@@ -509,3 +761,150 @@
   })();
 
 })();
+
+async function startObsShare(videoEl) {
+  // Use Screen Share (getDisplayMedia) to capture OBS preview window.
+  // This avoids capture-card device conflicts with OBS.
+  try {
+    // Stop camera stream if running
+    if (stream) {
+      try { stream.getTracks().forEach(t => t.stop()); } catch(e) {}
+      stream = null;
+    }
+    const s = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: 30 },
+      audio: false
+    });
+    obsStream = s;
+    // When user stops sharing, reset state
+    const [track] = s.getVideoTracks();
+    if (track) {
+      track.addEventListener('ended', () => {
+        try { videoEl.srcObject = null; } catch(e) {}
+        stopObsShare();
+      });
+    }
+    videoEl.srcObject = s;
+    await videoEl.play();
+    setStatus && setStatus("画面共有: OK（OBSプレビューを選んでください）");
+  } catch (err) {
+    console.error(err);
+    setStatus && setStatus("画面共有: NG（キャンセル/権限/選択ミス）");
+    throw err;
+  }
+}
+
+function stopObsShare() {
+  if (obsStream) {
+    try { obsStream.getTracks().forEach(t => t.stop()); } catch(e) {}
+    obsStream = null;
+  }
+}
+
+async function tryAutoSelectObsVirtualCam(selectEl) {
+  // If OBS Virtual Camera exists, auto-select it for camera mode.
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const vids = devices.filter(d => d.kind === "videoinput");
+    const obs = vids.find(d => /obs|virtual/i.test(d.label));
+    if (obs && selectEl) {
+      for (const opt of Array.from(selectEl.options)) {
+        if (opt.value === obs.deviceId) {
+          selectEl.value = obs.deviceId;
+          break;
+        }
+      }
+    }
+  } catch (e) {}
+}
+
+function setSrcMode(mode) {
+  plSrcMode = mode;
+  if (mode === 'obs') {
+    // Stop camera stream; wait for user to click "画面共有を開始"
+    if (stream) {
+      try { stream.getTracks().forEach(t => t.stop()); } catch(e) {}
+      stream = null;
+    }
+    setStatus && setStatus("入力: OBSプレビュー（画面共有）");
+  } else {
+    // Stop screen share stream
+    stopObsShare();
+    setStatus && setStatus("入力: キャプチャーボード（カメラ）");
+  }
+}
+
+
+// ===== Lock detected name (no auto-reset) =====
+let lockedNameValue = "";
+
+function setLockedName(name) {
+  lockedNameValue = (name || "").toString().trim();
+  const el = document.getElementById("lockedName");
+  if (el) el.textContent = lockedNameValue ? lockedNameValue : "（未検出）";
+}
+
+async function copyLockedName() {
+  const txt = (lockedNameValue || "").trim();
+  if (!txt) return;
+  try {
+    await navigator.clipboard.writeText(txt);
+    setStatus && setStatus("確定名をコピーしました");
+  } catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = txt;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    setStatus && setStatus("確定名をコピーしました");
+  }
+}
+
+function hookLockButtons() {
+  const btnCopy = document.getElementById("btnCopyLocked");
+  const btnClear = document.getElementById("btnClearLocked");
+  btnCopy && btnCopy.addEventListener("click", copyLockedName);
+  btnClear && btnClear.addEventListener("click", () => setLockedName(""));
+}
+// ===== End lock =====
+
+
+function getRoiPixels(){
+  const vw = video.videoWidth || 0;
+  const vh = video.videoHeight || 0;
+  if(!vw || !vh) return null;
+  const rx = Math.floor(vw * ROI.x);
+  const ry = Math.floor(vh * ROI.y);
+  const rw = Math.floor(vw * ROI.w);
+  const rh = Math.floor(vh * ROI.h);
+  return { vw, vh, rx, ry, rw, rh, roi: ROI };
+}
+function updateRoiInfo(){
+  const el = document.getElementById("roiInfo");
+  if(!el) return;
+  const p = getRoiPixels();
+  if(!p){ el.textContent = ""; return; }
+  el.textContent = `vw:${p.vw} vh:${p.vh} / x:${p.rx} y:${p.ry} w:${p.rw} h:${p.rh}`;
+}
+async function copyRoiInfo(){
+  const p = getRoiPixels();
+  if(!p) return;
+  const text = JSON.stringify(p, null, 2);
+  try{
+    await navigator.clipboard.writeText(text);
+    setStatus && setStatus("範囲情報をコピーしました");
+  }catch(e){
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    setStatus && setStatus("範囲情報をコピーしました");
+  }
+}
+function hookRoiButton(){
+  const btn = document.getElementById("btnCopyROI");
+  btn && btn.addEventListener("click", copyRoiInfo);
+}

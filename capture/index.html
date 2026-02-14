@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Pick Lab Capture（固定ROI）</title>
+  <title>Pick Lab Capture（スナップショット判定）</title>
   <link rel="icon" type="image/svg+xml" href="../assets/icon.svg">
   <link rel="stylesheet" href="../style.css">
   <style>
@@ -30,7 +30,29 @@
     <div class="row" style="justify-content:space-between">
       <div>
         <h1 style="margin:0">Pick Lab Capture</h1>
-        <div class="muted">探索なし・固定ROIのみ（1920×1080前提）</div>
+        
+    <div class="pl-cap-row" style="margin:10px 0; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <div style="display:flex; gap:8px; align-items:center; padding:6px 10px; border:1px solid #333; border-radius:10px;">
+        <strong>入力</strong>
+        <label style="display:flex; gap:6px; align-items:center; cursor:pointer;">
+          <input type="radio" name="plSrcMode" id="srcModeCam" value="cam" checked>
+          <span>キャプチャーボード（カメラ）</span>
+        </label>
+        <label style="display:flex; gap:6px; align-items:center; cursor:pointer;">
+          <input type="radio" name="plSrcMode" id="srcModeObs" value="obs">
+          <span>OBSプレビュー（画面共有）</span>
+        </label>
+      </div>
+
+      <button id="btnStartObs" class="btn" style="padding:8px 12px; border-radius:10px;">
+        画面共有を開始
+      </button>
+
+      <span style="opacity:.85; font-size:12px;">
+        ※OBSを閉じずに使うなら「OBSプレビュー（画面共有）」がおすすめ
+      </span>
+    </div>
+    <div class="muted">固定ROIを切り出して、押した時だけ判定します（常時判定しません）</div>
       </div>
       <div class="row">
         <a class="btn btnLink secondary" href="../">トップへ</a>
@@ -53,63 +75,24 @@
         </label>
         <button class="btn primary" id="btnStart">開始</button>
         <button class="btn" id="btnStop" disabled>停止</button>
-        <span class="pill"><span>状態</span> <span id="capStatus" class="mono">未開始</span></span>
+        <button class="btn" id="btnSnap" disabled>判定（スナップショット）</button>
+        
+<div class="pl-lockbar" style="margin:10px 0; padding:10px; border:1px solid #333; border-radius:12px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+  <strong>確定名:</strong>
+  <span id="lockedName" style="min-width:160px; font-weight:800;">（未検出）</span>
+  <button id="btnCopyLocked" class="btn" style="padding:6px 12px; border-radius:10px;">コピー</button>
+  <button id="btnClearLocked" class="btn" style="padding:6px 12px; border-radius:10px;">次（解除）</button>
+  <button id="btnCopyROI" class="btn" style="padding:6px 12px; border-radius:10px;">範囲情報コピー</button>
+  <span id="roiInfo" style="opacity:.85; font-size:12px;"></span>
+  <span style="opacity:.85; font-size:12px;">※「判定（スナップショット）」で出た名前は、次を押すまで固定されます</span>
+</div>
+<span class="pill"><span>状態</span> <span id="capStatus" class="mono">未開始</span></span>
         <span class="pill"><span>OCR</span> <span id="ocrStatus" class="mono">未準備</span></span>
       </div>
-
-      <div class="hint muted" style="margin-top:10px">
-        ※ うまく映らない場合：<b>ブラウザでカメラ許可</b> / <b>他のアプリが同じデバイスを使用中</b>（OBSプレビュー等）を確認。
-      </div>
-    </section>
-
-    <div class="grid">
-      <section class="card">
-        <div class="panelTitle">
-          <h2>2) 判定結果</h2>
-          <div class="small muted">失敗しても 0 に戻さず、最後に確定した名前を保持します。</div>
-        </div>
-
-        <div class="row" style="margin-top:10px">
-          <div class="pill"><span>確定</span> <span id="detName" class="big">—</span></div>
-          <div class="pill"><span>信頼度</span> <span id="detConf" class="mono">—</span></div>
-          <button class="btn" id="btnCopy" disabled>コピー</button>
-        </div>
-
-        <div style="margin-top:10px">
-          <div class="muted">相手リスト（自動追加 / 重複しません）</div>
-          <div id="oppList" class="list" style="margin-top:8px"></div>
-          <div class="row" style="margin-top:10px">
-            <button class="btn" id="btnClear" disabled>リスト消去</button>
-            <span class="muted small">localStorage に保存します（ページ更新しても残ります）</span>
-          </div>
-        </div>
-
-        <details style="margin-top:12px">
-          <summary class="muted">デバッグ（必要な時だけ開く）</summary>
-          <div class="hint" style="margin-top:8px">
-            <div class="row">
-              <span class="pill"><span>生OCR</span> <span id="rawText" class="mono">—</span></span>
-            </div>
-            <canvas id="roiCanvas" width="800" height="200" style="display:block;margin-top:10px;width:100%;border-radius:12px;border:1px solid var(--border)"></canvas>
-            <div class="muted small" style="margin-top:6px">ここは確認用。オレンジ線などは一切出しません。</div>
-          </div>
-        </details>
-      </section>
-
-      <section class="card">
-        <div class="panelTitle">
-          <h2>映像</h2>
-          <div class="small muted">固定ROIは右上（HPバーの名前付近）を切り出します。</div>
-        </div>
-        <video id="capVideo" autoplay playsinline muted></video>
-        <canvas id="fullCanvas" width="1920" height="1080"></canvas>
-        <div class="hint muted" style="margin-top:8px">
-          推奨：OBS / キャプチャの出力が <b>1920×1080</b> のとき最も安定します。
-        </div>
-      </section>
+</section>
     </div>
   </main>
 
-  <script src="./capture.js?v=20260211_fixed"></script>
+  <script src="./capture.js?v=20260214_snapshot"></script>
 </body>
 </html>
