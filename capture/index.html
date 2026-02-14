@@ -20,6 +20,29 @@
     .list{display:flex;flex-wrap:wrap;gap:8px}
     .hint{font-size:13px;line-height:1.6}
     details summary{cursor:pointer}
+  
+    /* === Team snap UI === */
+    .team-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .team-preview{width:100%;max-height:420px;object-fit:contain;background:#111;border-radius:12px}
+    .team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+    @media (max-width:980px){ .team-grid{grid-template-columns:1fr} }
+    .team-slot{border:1px solid var(--border);background:#fff;border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px}
+    .team-slot-head{display:flex;justify-content:space-between;align-items:center}
+    .team-slot-crop{width:96px;height:96px;image-rendering:pixelated;border-radius:10px;border:1px solid var(--border);background:#f7f7f7}
+    .team-chosen{padding:6px 10px;border-radius:10px;border:1px dashed var(--border);background:#fff}
+    .team-chosen.ok{border-style:solid}
+    .team-cands{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+    .team-cand-btn{display:grid;grid-template-columns:44px 1fr;grid-template-rows:auto auto;gap:2px 8px;align-items:center;text-align:left;padding:8px;border-radius:12px;border:1px solid var(--border);background:#fff;cursor:pointer}
+    .team-cand-btn:hover{filter:brightness(0.98)}
+    .team-cand-btn img{width:44px;height:44px;image-rendering:pixelated}
+    .team-cand-name{grid-column:2;font-weight:700}
+    .team-cand-dist{grid-column:2;font-size:12px;opacity:.75}
+    .conf-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .conf-chip{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:999px;border:1px solid var(--border);background:#fff;cursor:pointer}
+    .conf-chip img{width:28px;height:28px;image-rendering:pixelated}
+    .knobs{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .knobs .pill{gap:6px}
+
   </style>
 </head>
 <body>
@@ -142,8 +165,82 @@
         </details>
       </section>
     </div>
+
+
+    <section class="card" style="margin-top:12px">
+      <div class="panelTitle">
+        <h2>4) 相手6匹スナップ（選出画面）</h2>
+        <div class="small muted">この画面のスクショを貼り付け → 6枠を自動で候補表示 → あなたが確定</div>
+      </div>
+
+      <div class="team-tools" style="margin-top:10px">
+        <label class="pill" style="cursor:pointer">
+          <span>画像ファイル</span>
+          <input id="teamFile" type="file" accept="image/*" style="max-width:260px">
+        </label>
+        <button class="btn" id="btnPasteTeam" type="button">クリップボードから貼り付け</button>
+
+        <span class="pill">
+          <span>候補数</span>
+          <select id="candK">
+            <option value="4">4</option>
+            <option value="6" selected>6</option>
+            <option value="8">8</option>
+            <option value="10">10</option>
+          </select>
+        </span>
+
+        <button class="btn" id="btnBuildIconDb" type="button">アイコンDB作成</button>
+        <span class="mono" id="iconDbStatus" style="font-size:12px;opacity:.85"></span>
+        <span class="mono" id="iconDbProgress" style="font-size:12px;opacity:.85"></span>
+      </div>
+
+      <div class="knobs" style="margin-top:10px">
+        <span class="pill"><span>ズレX%</span><input id="roiDx" type="number" value="0" step="0.1" style="width:88px"></span>
+        <span class="pill"><span>ズレY%</span><input id="roiDy" type="number" value="0" step="0.1" style="width:88px"></span>
+        <span class="pill"><span>拡大%</span><input id="roiScale" type="number" value="100" step="0.5" style="width:88px"></span>
+        <span class="muted" style="font-size:12px">※アイコン枠が少しズレる時だけ調整</span>
+      </div>
+
+      <img id="teamPreview" class="team-preview" alt="screenshot preview" style="display:none;margin-top:10px">
+
+      <div id="teamSlots" class="team-grid"></div>
+
+      <div id="teamConfirmed" style="display:none;margin-top:12px">
+        <div class="panelTitle" style="margin-bottom:6px">
+          <h3 style="margin:0">6匹確定</h3>
+          <div class="small muted">下の6匹から「今出てる相手」をクリックで選ぶ（コピー可）</div>
+        </div>
+
+        <div id="confList" class="conf-row"></div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="btnCopyTeam" type="button">6匹をコピー</button>
+          <button class="btn" id="btnResetTeam" type="button">リセット</button>
+        </div>
+
+        <div id="activePick" style="margin-top:10px;display:none">
+          <div class="row">
+            <span class="pill"><span>現在の相手</span> <span id="activeName" class="big">—</span></span>
+            <button class="btn" id="btnCopyActive" type="button">現在の相手をコピー</button>
+          </div>
+        </div>
+      </div>
+
+      <details style="margin-top:10px">
+        <summary class="muted">使い方メモ</summary>
+        <div class="hint" style="margin-top:8px">
+          1) 対戦の「選出画面」でスクショ（このページに貼り付け）<br>
+          2) 各枠で候補が出るので、正しいポケモンをクリックして確定<br>
+          3) 6匹確定したら、6匹から「今出てる相手」をクリック → コピーして他ページに貼る<br>
+          ※最初の1回だけ「アイコンDB作成」が必要です（以降はキャッシュされます）
+        </div>
+      </details>
+    </section>
+
   </main>
 
   <script src="./capture.js?v=20260214_snapshot"></script>
+  <script src="./team-snap.js?v=20260214_team_snap"></script>
 </body>
 </html>
