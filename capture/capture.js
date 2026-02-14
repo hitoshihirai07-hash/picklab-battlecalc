@@ -269,13 +269,13 @@ function setCapStatus(s){ capStatus.textContent = s; }
     return "";
   }
 
-    function loadOppList(){ return []; }
+  function loadOppList(){ return []; }
 
   function saveOppList(){ /* disabled */ }
 
   function renderOppList(){
     // 相手リスト機能は現在無効（UIは hideLogUI で非表示）。
-    // 呼び出し元があるので、落ちないように最低限だけ処理。
+    // 呼び出し元があるため、落ちないように最低限の処理だけ行う。
     const arr = loadOppList() || [];
     if(btnClear) btnClear.disabled = arr.length === 0;
     if(oppListEl) oppListEl.innerHTML = "";
@@ -311,8 +311,6 @@ function setCapStatus(s){ capStatus.textContent = s; }
     }catch(e){}
   }
 
-
-  }
 
   // simple image hash (sampling)
   function hashImageData(imgData){
@@ -574,8 +572,8 @@ try { await tryAutoSelectObsVirtualCam(deviceSelect || selDevice || document.get
     if(loopTimer) clearInterval(loopTimer);
     lastHash = 0;
     busy = false;
-    loopTimer = // (disabled) auto interval removed for stability
-// quick check; OCR is throttled by OCR_INTERVAL_MS
+    // 自動スキャンは無効（手動スナップのみ）
+    loopTimer = null;
   }
 
   async function tick(){
