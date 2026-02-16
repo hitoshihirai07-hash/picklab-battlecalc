@@ -3,6 +3,10 @@
   const NAME_KEY = "picklab_pokemon_names_v1";
   const LAST_REG_KEY = "picklab_learning_last_reg_v1";
 
+  const REG_ENABLED_KEY = "picklab_reg_allow_enabled_v1";
+  const REG_CSV_KEY = "picklab_reg_allow_csv_v1";
+  const ALLOW_NAME_KEY = "picklab_pokemon_names_allowed_v1";
+
   const $ = (id) => document.getElementById(id);
 
   const msgEl = $("msg");
@@ -15,7 +19,11 @@
   const selfPicksEl = $("selfPicks");
   const oppPicksEl  = $("oppPicks");
 
-  const datalist = $("pokemonList");
+  const datalist = \$\("pokemonList"\);
+  const regToggle = $("toggleReg");
+  const regFile = $("fileRegCsv");
+  const btnRegDefault = $("btnLoadRegDefault");
+  const regInfoEl = $("regInfo");
 
   const regInput = $("regInput");
   const regList  = $("regList");
@@ -243,40 +251,90 @@
     }
   }
 
-  async function loadNames() {
-    // localStorage cache
+  
+  function clearNameCaches(){
+    try { localStorage.removeItem(NAME_KEY); } catch {}
+    try { localStorage.removeItem(ALLOW_NAME_KEY); } catch {}
+  }
+
+  async function getRegCsvText(){
+    // Prefer user-provided CSV (stored in localStorage)
     try {
-      const cached = localStorage.getItem(NAME_KEY);
-      if (cached) {
-        const arr = JSON.parse(cached);
-        if (Array.isArray(arr) && arr.length > 100) return arr;
-      }
+      const t = localStorage.getItem(REG_CSV_KEY);
+      if (t && t.trim().length > 50) return { text: t, source: "custom" };
     } catch {}
 
+    // Default: fetch bundled regulation.csv
     const res = await fetch("../regulation.csv", { cache: "no-store" });
     if (!res.ok) throw new Error("regulation.csv fetch failed");
     const text = await res.text();
+    return { text, source: "default" };
+  }
+
+  function parseRegCsvNames(text, onlyAllowed){
     const lines = text.split(/\r?\n/).filter(Boolean);
-    // header: No,名前,allow
     const names = [];
     const seen = new Set();
+    // header: No,名前,allow
     for (let i=1;i<lines.length;i++){
       const cols = lines[i].split(",");
       const name = (cols[1] || "").trim();
+      const allow = (cols[2] || "").trim().toUpperCase();
       if (!name) continue;
+      if (onlyAllowed && allow !== "TRUE") continue;
       if (seen.has(name)) continue;
       seen.add(name);
       names.push(name);
     }
-    try { localStorage.setItem(NAME_KEY, JSON.stringify(names)); } catch {}
     return names;
   }
 
-  function renderDatalist(names) {
-    datalist.innerHTML = "";
-    const frag = document.createDocumentFragment();
-    for (const n of names) frag.appendChild(optionEl(n));
-    datalist.appendChild(frag);
+  async function loadNames(onlyAllowed) {
+    const cacheKey = onlyAllowed ? ALLOW_NAME_KEY : NAME_KEY;
+
+    // localStorage cache
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const arr = JSON.parse(cached);
+        if (Array.isArray(arr) && arr.length > 100) return { names: arr, source: "cache" };
+      }
+    } catch {}
+
+    const { text, source } = await getRegCsvText();
+    const names = parseRegCsvNames(text, !!onlyAllowed);
+
+    try { localStorage.setItem(cacheKey, JSON.stringify(names)); } catch {}
+    return { names, source };
+  }
+
+
+function renderDatalist\(names\) {
+    datalist\.innerHTML = "";
+    const frag = document\.createDocumentFragment\(\);
+    for \(const n of names\) frag\.appendChild\(optionEl\(n\)\);
+    datalist\.appendChild\(frag\);
+  }
+
+  async function rebuildCandidates(){
+    const onlyAllowed = !!(regToggle && regToggle.checked);
+    try {
+      setMsg("候補データを読み込み中…", "note");
+      const { names, source } = await loadNames(onlyAllowed);
+      state.names = names;
+      renderDatalist(state.names);
+
+      if (regInfoEl) {
+        const mode = onlyAllowed ? "allowのみ" : "全件";
+        const src = (source === "custom") ? "カスタムCSV" : (source === "default" ? "デフォルトCSV" : "キャッシュ");
+        regInfoEl.textContent = `候補: ${names.length}（${mode} / ${src}）`;
+      }
+      validate();
+    } catch (e) {
+      console.error(e);
+      if (regInfoEl) regInfoEl.textContent = "候補: -（読み込み失敗）";
+      setMsg("⚠️ 候補データの読み込みに失敗しました（regulation.csv）。<br>ただし、手入力で保存はできます。", "ng");
+    }
   }
 
   function renderLogList(filtered) {
@@ -409,15 +467,48 @@
     refreshRegControls(logs);
     refreshCountersAndList();
 
+    // --- Candidate filter (regulation allow-list) ---
     try {
-      setMsg("候補データを読み込み中…", "note");
-      state.names = await loadNames();
-      renderDatalist(state.names);
-      setMsg("入力できたら「ログ収集（保存）」を押してください。", "note");
-    } catch (e) {
-      console.error(e);
-      setMsg("⚠️ 候補データの読み込みに失敗しました（regulation.csv）。<br>ただし、手入力で保存はできます。", "ng");
-    }
+      // default: ON if not set
+      if (regToggle) {
+        let v = null;
+        try { v = localStorage.getItem(REG_ENABLED_KEY); } catch {}
+        regToggle.checked = (v === null) ? true : (v === "1" || v === "true");
+        regToggle.addEventListener("change", async () => {
+          try { localStorage.setItem(REG_ENABLED_KEY, regToggle.checked ? "1" : "0"); } catch {}
+          await rebuildCandidates();
+        });
+      }
+
+      if (regFile) {
+        regFile.addEventListener("change", async () => {
+          const f = regFile.files && regFile.files[0];
+          if (!f) return;
+          try {
+            const text = await f.text();
+            try { localStorage.setItem(REG_CSV_KEY, text); } catch {}
+            clearNameCaches();
+            await rebuildCandidates();
+            setMsg("CSVを読み込みました。候補が更新されました。", "ok");
+          } catch (e) {
+            console.error(e);
+            setMsg("⚠️ CSVの読み込みに失敗しました。", "ng");
+          } finally {
+            try { regFile.value = ""; } catch {}
+          }
+        });
+      }
+
+      if (btnRegDefault) {
+        btnRegDefault.addEventListener("click", async () => {
+          try { localStorage.removeItem(REG_CSV_KEY); } catch {}
+          clearNameCaches();
+          await rebuildCandidates();
+          setMsg("デフォルトCSVを適用しました。", "ok");
+        });
+      }
+    } catch {}
+    await rebuildCandidates();
 
     $("btnSave").addEventListener("click", saveLog);
     $("btnClear").addEventListener("click", clearAll);
