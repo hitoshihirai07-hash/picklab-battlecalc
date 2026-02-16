@@ -6,7 +6,7 @@
   <title>Pick Lab 対戦・ダメージ計算</title>
   <link rel="manifest" href="../assets/manifest.webmanifest">
   <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="../style.css?v=20260216_log1"/>
+  <link rel="stylesheet" href="../style.css?v=20260216_log2"/>
   <style>
     .grid2{display:grid;gap:14px;grid-template-columns:1fr}
     @media (min-width:980px){ .grid2{grid-template-columns:1fr 1fr} }
@@ -18,6 +18,14 @@
     .statline{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .ok{border:1px solid rgba(46, 204, 113, .35);background:rgba(46, 204, 113, .10);padding:8px 10px;border-radius:12px}
     .ng{border:1px solid rgba(255, 99, 71, .35);background:rgba(255, 99, 71, .10);padding:8px 10px;border-radius:12px}
+  
+    .logItem{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:8px 10px;border:1px solid rgba(255,255,255,.08);border-radius:12px;margin:8px 0}
+    .logLeft{min-width:0;flex:1}
+    .logMeta{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.12);font-size:12px}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .danger{border-color: rgba(255, 99, 71, .35);background:rgba(255, 99, 71, .10)}
+
   </style>
 </head>
 <body>
@@ -42,7 +50,20 @@
       <div class="small">対戦後にここを埋めて「ログ収集（保存）」→ 次の試合は「クリア」</div>
     </div>
 
-    <div class="grid2">
+    
+    <div class="panelTitle" style="margin-top:14px">
+      <h3 class="h3">レギュレーション</h3>
+      <div class="small">例：レギュG / レギュH（自由入力OK） ※保存時に一緒に記録します</div>
+    </div>
+    <div class="statline" style="margin:6px 0 12px">
+      <input id="regInput" type="text" list="regList" placeholder="例：レギュG" autocomplete="off" spellcheck="false" style="min-width:220px;flex:1"/>
+      <datalist id="regList"></datalist>
+      <span class="muted">|</span>
+      <span class="small">表示フィルタ</span>
+      <select id="regFilter"></select>
+    </div>
+
+<div class="grid2">
       <section>
         <div class="panelTitle" style="margin-top:0">
           <h3 class="h3">自分（6体）</h3>
@@ -80,16 +101,25 @@
       <button id="btnSave" class="primary">ログ収集（保存）</button>
       <button id="btnClear" class="btn" type="button">クリア（次の試合）</button>
       <div class="statline small">
-        保存件数: <b id="logCount">0</b>
+        表示件数: <b id="logCount">0</b> <span class="muted">/</span> 全件: <b id="logCountAll">0</b>
         <span class="muted">/</span>
         最終保存: <span id="lastSaved">-</span>
       </div>
     </div>
 
     <div id="msg" class="note" style="margin-top:10px"></div>
+
+    <div class="hr"></div>
+
+    <div class="panelTitle" style="margin-top:0">
+      <h2>保存ログ（最新20件）</h2>
+      <div class="small">レギュレーションで絞り込みできます。各行の「削除」で個別削除。</div>
+    </div>
+
+    <div id="logList" class="note" style="margin-top:10px; overflow:auto;"></div>
   </section>
 </main>
 
-<script src="./log.js?v=20260216_log1"></script>
+<script src="./log.js?v=20260216_log2"></script>
 </body>
 </html>
