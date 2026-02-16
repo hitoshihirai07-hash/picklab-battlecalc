@@ -31,14 +31,14 @@
 <body>
 <header>
   <h1>Pick Lab 対戦・ダメージ計算</h1>
-  <div class="sub">自分専用 学習ログ（ローカル保存）</div>
+  <div class="sub">学習ログ（この端末に保存）</div>
   <div class="toolbar">
     <a class="btn" href="../" style="text-decoration:none;">トップ</a>
     <a class="btn" href="../sim/" style="text-decoration:none;">シミュ</a>
     <a class="btn" href="../calc/" target="_blank" rel="noopener" style="text-decoration:none;">ダメージ計算</a>
   </div>
   <div class="note" style="margin-top:8px">
-    このページは<b>ブラウザ内（localStorage）</b>に対戦ログを保存します。外部送信はしません。<br>
+    このページは<b>この端末</b>に対戦ログを保存します。外部送信はしません。<br>
     相手6体/自分6体と、両者の選出1〜3を記録できます（後で「よくある並び学習」に使う入口）。
   </div>
 </header>
@@ -70,9 +70,9 @@
     <div class="statline" style="margin:6px 0 14px; gap:10px; flex-wrap:wrap">
       <label class="small" style="display:flex;align-items:center;gap:8px">
         <input id="toggleReg" type="checkbox"/>
-        allowリストで絞る
+        使用可能ポケモンのみ
       </label>
-      <button id="btnLoadRegDefault" class="btn" type="button">デフォルト読み込み</button>
+      <button id="btnLoadRegDefault" class="btn" type="button">対象リスト更新</button>
       <span id="regInfo" class="small muted"></span>
     </div>
 
@@ -133,6 +133,6 @@
   </section>
 </main>
 
-<script src="./log.js?v=20260216_log3"></script>
+<script src="./log.js?v=20260216_learnui1"></script>
 </body>
 </html>
