@@ -481,9 +481,9 @@
     el.btnLoadRegDefault.addEventListener('click', async () => {
       try {
         await loadRegulationCSV('../regulation.csv');
-        showMsg('ok', 'regulation.csv を読み込みました。');
+        showMsg('ok', '読み込みました。');
       } catch (e) {
-        showMsg('ng', `regulation.csv の読み込みに失敗しました: ${e.message}`);
+        showMsg('ng', `読み込みに失敗しました: ${e.message}`);
       }
     });
 
@@ -499,7 +499,7 @@
       pokemonAll = [];
       pokemonAllowed = [];
       renderPokemonDatalist();
-      showMsg('ng', `regulation.csv の読み込みに失敗しました。入力候補なしで動作します。 (${e.message})`);
+      showMsg('ng', `読み込みに失敗しました。入力候補なしで動作します。 (${e.message})`);
     }
 
     // initial pick options
