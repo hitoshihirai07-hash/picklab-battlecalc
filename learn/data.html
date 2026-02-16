@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Pick Lab 対戦・ダメージ計算</title>
+  <link rel="manifest" href="../assets/manifest.webmanifest">
+  <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../style.css?v=20260216_stats1"/>
+  <style>
+    .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+    .controls .field{display:flex;flex-direction:column;gap:4px}
+    .controls label{font-size:12px;color:var(--muted)}
+    .controls select,.controls input{padding:10px 12px;border-radius:12px;border:1px solid rgba(0,0,0,.15);background:rgba(255,255,255,.85)}
+    .grid2{display:grid;gap:14px;grid-template-columns:1fr}
+    @media (min-width:980px){ .grid2{grid-template-columns:1fr 1fr} }
+    .tableWrap{overflow:auto;border-radius:14px;border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.7)}
+    table{width:100%;border-collapse:collapse;min-width:560px}
+    th,td{padding:10px 12px;border-bottom:1px solid rgba(0,0,0,.08);white-space:nowrap}
+    th{position:sticky;top:0;background:rgba(250,250,250,.95);text-align:left;font-size:12px;color:var(--muted);z-index:1}
+    td.num{text-align:right;font-variant-numeric:tabular-nums}
+    .pill{display:inline-block;padding:3px 8px;border-radius:999px;border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.7);font-size:12px}
+    .muted{color:var(--muted)}
+    .noteSmall{font-size:12px;color:var(--muted);line-height:1.5}
+    .empty{padding:14px;border-radius:14px;border:1px dashed rgba(0,0,0,.18);background:rgba(255,255,255,.55)}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Pick Lab 対戦・ダメージ計算</h1>
+  <div class="sub">学習データ（集計）</div>
+  <div class="toolbar">
+    <a class="btn" href="../" style="text-decoration:none;">トップ</a>
+    <a class="btn" href="../sim/" style="text-decoration:none;">シミュ</a>
+    <a class="btn" href="./" style="text-decoration:none;">学習ログ</a>
+    <a class="btn primary" href="./data.html" style="text-decoration:none;">学習データ</a>
+    <a class="btn" href="../calc/" target="_blank" rel="noopener" style="text-decoration:none;">ダメージ計算</a>
+  </div>
+  <div class="note" style="margin-top:8px">
+    学習ログで<b>保存した内容</b>を集計して表示します（この端末内で完結します）。
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <div class="panelTitle">
+      <h2>集計条件</h2>
+      <div class="small">レギュレーションで絞って、上位表示や並び替えができます。</div>
+    </div>
+
+    <div class="controls" style="margin-top:10px">
+      <div class="field">
+        <label for="regFilter">レギュレーション</label>
+        <select id="regFilter"></select>
+      </div>
+      <div class="field">
+        <label for="limit">表示件数</label>
+        <select id="limit">
+          <option value="10">上位10</option>
+          <option value="20" selected>上位20</option>
+          <option value="50">上位50</option>
+          <option value="100">上位100</option>
+          <option value="all">全部</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="sortKey">並び替え</label>
+        <select id="sortKey">
+          <option value="pickCount" selected>選出数</option>
+          <option value="pickRate">選出率</option>
+          <option value="leadCount">初手数</option>
+          <option value="leadRate">初手率</option>
+          <option value="appearCount">出現数（6匹内）</option>
+          <option value="appearRate">出現率（6匹内）</option>
+          <option value="name">名前（あいうえお）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="q">検索</label>
+        <input id="q" placeholder="例：カイリュー / パオジアン" />
+      </div>
+      <button id="btnRefresh" class="btn">更新</button>
+    </div>
+
+    <div class="noteSmall" style="margin-top:10px">
+      ※ 選出率/初手率は、<b>選出1〜3を入力した試合</b>だけを分母にして計算します（未入力の試合は除外）。
+    </div>
+
+    <div id="empty" class="empty" style="margin-top:12px; display:none">
+      まだ学習ログがありません。先に <a href="./" style="text-decoration:none"><b>学習ログ</b></a> で保存してください。
+    </div>
+  </section>
+
+  <div class="grid2" style="margin-top:14px">
+    <section class="card">
+      <div class="panelTitle">
+        <h2>自分（集計）</h2>
+        <div class="small"><span id="selfMeta" class="pill">-</span></div>
+      </div>
+      <div class="tableWrap" style="margin-top:10px">
+        <table>
+          <thead>
+            <tr>
+              <th>ポケモン</th>
+              <th class="num">出現</th>
+              <th class="num">出現率</th>
+              <th class="num">選出</th>
+              <th class="num">選出率</th>
+              <th class="num">初手</th>
+              <th class="num">初手率</th>
+            </tr>
+          </thead>
+          <tbody id="selfBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="panelTitle">
+        <h2>相手（集計）</h2>
+        <div class="small"><span id="oppMeta" class="pill">-</span></div>
+      </div>
+      <div class="tableWrap" style="margin-top:10px">
+        <table>
+          <thead>
+            <tr>
+              <th>ポケモン</th>
+              <th class="num">出現</th>
+              <th class="num">出現率</th>
+              <th class="num">選出</th>
+              <th class="num">選出率</th>
+              <th class="num">初手</th>
+              <th class="num">初手率</th>
+            </tr>
+          </thead>
+          <tbody id="oppBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="footerLinks">
+    <a href="../" class="link">トップ</a>
+    <a href="../sim/" class="link">シミュ</a>
+    <a href="./" class="link">学習ログ</a>
+  </div>
+  <div class="small muted">Pick Lab / 学習データ</div>
+</footer>
+
+<script src="./data.js?v=20260216_stats1"></script>
+</body>
+</html>
