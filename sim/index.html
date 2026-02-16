@@ -7,6 +7,25 @@
   <link rel="manifest" href="../assets/manifest.webmanifest">
   <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../style.css?v=20260206"/>
+
+  <style>
+    /* optOut */
+    .optOut{margin-top:10px}
+    .optBox{padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff}
+    .optHdr{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .optHdr h3{margin:0;font-size:14px}
+    .optSmall{font-size:12px;color:var(--muted)}
+    .optRow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+    .monPill{display:inline-flex;gap:6px;align-items:center;padding:4px 8px;border:1px solid var(--line);border-radius:999px;background:#fff}
+    .monPill img{width:28px;height:28px;object-fit:contain;border-radius:6px}
+    .optList{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+    .optItem{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:6px 8px;border:1px dashed var(--line);border-radius:10px;background:#fff}
+    .optItem .left{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .optItem .right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .btnTiny{font-size:12px;padding:6px 10px;border-radius:10px}
+    .optWarn{margin-top:8px;padding:8px 10px;border:1px solid rgba(255,138,61,.35);background:rgba(255,180,74,.10);border-radius:12px}
+  </style>
+
 </head>
 <body>
 <header>
@@ -34,7 +53,7 @@
     <div class="card">
       <div class="panelTitle">
         <h2>簡易シミュ</h2>
-        <div class="small">6体入力 → 6→3最適化 → 計算</div>
+        <div class="small">6体登録 → 6→3最適化（おまかせ）→ 必要なら微調整 → 計算</div>
       </div>
       <div class="row">
         <button id="btnSim" disabled>選出でシミュする</button>
@@ -49,7 +68,7 @@
         </label>
         <div class="small">※本気の対戦エンジンではなく、タイプ＋技タイプ中心の“ざっくり”です。</div>
       </div>
-      <div id="optOut" class="note"></div>
+      <div id="optOut" class="optOut"></div>
       <div id="simOut" class="note"></div>
     </div>
   </div>
@@ -82,6 +101,6 @@
   </div>
 </main>
 
-<script src="../app.js?v=20260216_6to3"></script>
+<script src="../app.js?v=20260216_6to3v2"></script>
 </body>
 </html>
