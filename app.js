@@ -1632,7 +1632,90 @@
     }
   }
 
-  function sideJa(side){ return side === "left" ? "左（あなた側）" : "右（相手側）"; }
+  function sideJa(side){ return side === "left" ? "左（あなた側）" : "右（相手側）"; 
+  function speciesJaById(id){
+    if(!id) return "";
+    for(const opt of (state.speciesOptions||[])){
+      if(opt && opt.id === id) return opt.ja || opt.en || id;
+    }
+    const p = state.pokedex?.[id];
+    return p?.nameJa || p?.name || id;
+  }
+
+  function fmtTeamByIndices(side, indices){
+    const names = [];
+    for(const i of (indices||[])){
+      const m = state.teams?.[side]?.[i];
+      if(!m || !m.speciesId) continue;
+      names.push(speciesJaById(m.speciesId));
+    }
+    return names.join(" / ");
+  }
+
+  function fmtTeamByMons(mons){
+    return (mons||[]).map(m=>speciesJaById(m?.speciesId)).filter(Boolean).join(" / ");
+  }
+
+  function topK3Minimax(side, oppSide, k){
+    const mine = getTeamAll(side);
+    const opp = getTeamAll(oppSide);
+    if (mine.length === 0) return {ok:false, msg:"候補がありません。まずポケモンを選んでください。"};
+    if (mine.length <= 3) return {ok:true, list:[{indices: mine.map(x=>x.i), p:null, oppIndices:null, note:"候補が3体以下なので全選出"}]};
+    if (opp.length === 0) return {ok:true, list:[{indices: mine.slice(0,3).map(x=>x.i), p:null, oppIndices:null, note:"相手側が未登録なので先頭3体"}]};
+    const out = [];
+    for (let a=0; a<mine.length; a++){
+      for (let b=a+1; b<mine.length; b++){
+        for (let c=b+1; c<mine.length; c++){
+          const my3 = [mine[a].m, mine[b].m, mine[c].m];
+          let worstP = Infinity;
+          let worstOpp = null;
+          const oLen = opp.length;
+          if (oLen <= 3) {
+            const opp3 = opp.map(x=>x.m);
+            worstP = sigmoid(estimateDiff(my3, opp3));
+            worstOpp = opp.map(x=>x.i);
+          } else {
+            for (let i=0;i<oLen;i++){
+              for (let j=i+1;j<oLen;j++){
+                for (let k2=j+1;k2<oLen;k2++){
+                  const opp3 = [opp[i].m, opp[j].m, opp[k2].m];
+                  const p = sigmoid(estimateDiff(my3, opp3));
+                  if (p < worstP) { worstP = p; worstOpp = [opp[i].i, opp[j].i, opp[k2].i]; }
+                }
+              }
+            }
+          }
+          out.push({indices:[mine[a].i, mine[b].i, mine[c].i], p: worstP, oppIndices: worstOpp});
+        }
+      }
+    }
+    out.sort((x,y)=> (y.p||0)-(x.p||0));
+    return {ok:true, list: out.slice(0, Math.max(1, k||3))};
+  }
+
+  function renderOptOut(side, oppSide){
+    const box = $("#optOut");
+    if(!box) return;
+    box.innerHTML = "";
+    const res = topK3Minimax(side, oppSide, 5);
+    if(!res.ok){
+      box.appendChild(el("div", {class:"err"}, res.msg));
+      return;
+    }
+    const title = el("div", {class:"small"}, `${sideJa(side)} 6→3最適化（相手の選出が不明な前提で“最悪ケース”を最大化）`);
+    box.appendChild(title);
+
+    const ol = el("ol", {class:"steps"});
+    for(const item of (res.list||[])){
+      const pct = (typeof item.p === "number") ? `${Math.round(item.p*1000)/10}%` : "";
+      const my = fmtTeamByIndices(side, item.indices);
+      const opp = (item.oppIndices && item.oppIndices.length===3) ? fmtTeamByIndices(oppSide, item.oppIndices) : "";
+      const txt = opp ? `${my}（最悪 ${pct} / 相手想定: ${opp}）` : `${my}${pct?`（${pct}）`:``}`;
+      ol.appendChild(el("li", {}, txt));
+    }
+    box.appendChild(ol);
+  }
+}
 
 
   function getAutoSpeciesPool(){
@@ -1708,6 +1791,7 @@
     }
     applyPickIndices(side, res.indices);
     renderAll();
+    renderOptOut(side, oppSide);
     if (res.note) {
       setStatus(`${sideJa(side)}：${res.note}`, "note");
     } else {
@@ -1729,6 +1813,7 @@
       if (rightRes.ok) applyPickIndices("right", rightRes.indices);
     }
     renderAll();
+    renderOptOut("left", "right");
     setStatus("両方おまかせで選出しました（相手は不利になりにくい選出を想定）", "ok");
   }
 
